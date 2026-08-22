@@ -8,6 +8,14 @@ on:
       - .github/workflows/extend-bom-cad-bundle-v2.yml
       - cad-libraries/bom-supplement-sources.json
       - scripts/collect_bom_supplement.py
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - cad-library-v2.trigger
+      - cad-libraries/bom-supplement-sources.json
+      - scripts/collect_bom_supplement.py
+      - .github/workflows/extend-bom-cad-bundle-v2.yml
   workflow_dispatch:
 
 permissions:
@@ -19,8 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
+      - name: Checkout base tools
         uses: actions/checkout@v4
+        with:
+          ref: codex/eplan-port
 
       - name: Download v1 CAD bundle
         uses: actions/download-artifact@v4
