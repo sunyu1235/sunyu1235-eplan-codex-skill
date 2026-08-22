@@ -1,19 +1,20 @@
 ---
 name: eplan-development
-description: Develop and automate EPLAN Electric P8 with Codex. Use for EPLAN C# scripts, EPLAN API extensions, parts/project/page data access, Remote Client apps, debugging automation, operating a running EPLAN instance through the local eplan MCP server, or resolving and importing EPLAN parts/macros on demand. Covers EPLAN 2022–2027.
+description: Develop and automate EPLAN Electric P8 with Codex. Use for EPLAN C# scripts, EPLAN API extensions, parts/project/page data access, Remote Client apps, debugging automation, operating a running EPLAN instance through the local eplan MCP server, resolving/importing EPLAN parts/macros on demand, or processing BOM tables into verified EPLAN part assignments. Covers EPLAN 2022–2027.
 ---
 
 # EPLAN Electric P8 Development for Codex
 
-Use this skill for EPLAN Electric P8 scripting, API development, Remote Client automation, MCP-driven operations, and on-demand parts data retrieval.
+Use this skill for EPLAN Electric P8 scripting, API development, Remote Client automation, MCP-driven operations, on-demand parts retrieval, and BOM-driven part assignment.
 
 ## Choose the execution path first
 
 1. **Operate a running EPLAN instance**: use the local `eplan` MCP server when available. Inspect the current project/state before mutating it.
-2. **Find a part/macro by manufacturer + part number**: read `references/parts-sources.md`. Resolve/download only the requested part; never mirror a complete catalog.
-3. **Verify EPLAN actions, parameters, or API signatures**: prefer the `eplan_rag` MCP dependency when available. If it is unavailable, query `https://rag2026.covaga.xyz/search` instead of guessing.
-4. **Write code only**: read the matching reference file below, then generate the smallest correct EPLAN script/API/Remote Client implementation.
-5. **Destructive project changes**: only perform them when the user requested the change. Prefer a project backup/export first when practical, and report exactly what was changed.
+2. **Process a BOM/parts table**: read `references/bom-workflow.md` and `references/parts-sources.md`. Parse the table, resolve/import unique parts once, then assign them to exact existing device tags when available.
+3. **Find a part/macro by manufacturer + part number**: read `references/parts-sources.md`. Resolve/download only the requested part; never mirror a complete catalog.
+4. **Verify EPLAN actions, parameters, or API signatures**: prefer the `eplan_rag` MCP dependency when available. If it is unavailable, query `https://rag2026.covaga.xyz/search` instead of guessing.
+5. **Write code only**: read the matching reference file below, then generate the smallest correct EPLAN script/API/Remote Client implementation.
+6. **Destructive project changes**: only perform them when the user requested the change. Prefer a project backup/export first when practical, and report exactly what was changed.
 
 ## The three development models
 
@@ -38,6 +39,30 @@ Read only the references relevant to the task:
 - `references/pitfalls.md` — blocking/message-loop failures, disposal, sequencing, error handling.
 - `references/integration-patterns.md` — HTTP/SignalR/external-service integration patterns.
 - `references/parts-sources.md` — WSCAD Universe, manufacturer sources, on-demand cache policy, and EDZ import workflow.
+- `references/bom-workflow.md` — BOM column detection, deduplicated retrieval/import, DT matching, ArticleReference assignment, and batch verification.
+
+## BOM-driven workflow
+
+When the user supplies a BOM/parts list, do not make them feed models one-by-one. Treat the BOM as a batch source of truth.
+
+1. Parse `.csv`, `.xlsx`, or `.xlsm` with `scripts/parse-bom.py` when useful. Auto-detect common Chinese/English columns such as manufacturer/brand, model/part number, quantity, device tag/DT, variant, page, and location.
+2. Build a **deduplicated unique-part queue** from all BOM rows so the same Siemens/Schneider/etc. model is resolved/downloaded/imported only once.
+3. For every unique part, first check the existing EPLAN parts database and local on-demand cache. Retrieve only missing models from the manufacturer source/WSCAD flow in `references/parts-sources.md`.
+4. Import missing EDZ data append-only by default and verify each part exists before assignment.
+5. If a BOM row contains an exact device tag/full DT, find the corresponding EPLAN Function. Reject zero matches or ambiguous multiple matches.
+6. Assign the part to the existing Function using the installed EPLAN version's verified API. EPLAN 2025 exposes `Function.AddArticleReference(partNumber, variant, count)` and only succeeds when the part already exists in the system/project database.
+7. Re-read `ArticleReferences` after each test/batch to verify the actual assigned part and count.
+8. If a BOM row has no DT, importing/caching the part is allowed, but do **not** invent a graphical placement. Mark it `unassigned_no_dt` unless the user explicitly asked to create devices and enough placement information is available.
+9. Before a large write, validate one representative row end-to-end. Then process sequentially; do not parallel-write against one EPLAN instance.
+10. Finish with a row-level report: DT, manufacturer, part number, retrieval/import status, assignment status, and any conflict.
+
+Typical preparation command:
+
+```powershell
+python .\scripts\parse-bom.py 'C:\project\BOM.xlsx' --out 'C:\temp\eplan-bom.json'
+```
+
+The intelligent behavior is: **BOM → infer exact models → fetch only needed part data → import → match DT → assign → verify**, not BOM → blindly place symbols.
 
 ## On-demand parts workflow
 
@@ -99,3 +124,4 @@ Use narrow English queries. Verify undocumented/case-sensitive action names and 
 8. Do not directly `using Eplan.EplApi.DataModel;` or `...HEServices;` in EPLAN scripts where the script compiler cannot resolve them. Use the runtime-reflection pattern in `references/e3d-installation-spaces.md`.
 9. Do not `RegisterScript` a one-shot `[Start]` script. Execute it directly; registration is for persistent declared actions/events/register hooks.
 10. Never mirror proprietary parts portals or bypass their authentication/subscription controls. Retrieve requested parts on demand through normal source access.
+11. Never report a BOM row as assigned until the target Function's `ArticleReferences` confirms the expected part.
