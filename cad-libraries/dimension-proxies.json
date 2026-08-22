@@ -1,0 +1,30 @@
+{
+  "axis_convention": "STEP box uses X=width, Y=depth, Z=height in millimetres",
+  "parts": [
+    {"model":"MD500T5.5GB","w":130,"h":200,"d":162,"status":"VERIFIED_DIMENSION_PROXY","source":"Inovance MD500 user manual dimensional table"},
+    {"model":"MD500T11GB","w":140,"h":250,"d":170,"status":"VERIFIED_DIMENSION_PROXY","source":"Inovance MD500 user manual dimensional table"},
+
+    {"model":"OSMC32N3C63","w":54,"h":81,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Schneider OSMC32N family: 18 mm/pole, H81, D70"},
+    {"model":"OSMC32N3C25","w":54,"h":81,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Schneider OSMC32N family: 18 mm/pole, H81, D70"},
+    {"model":"OSMC32N3C16","w":54,"h":81,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Schneider OSMC32N family: 18 mm/pole, H81, D70"},
+    {"model":"OSMC32N3C10","w":54,"h":81,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Schneider OSMC32N family: 18 mm/pole, H81, D70"},
+    {"model":"OSMC32N2C20","w":36,"h":81,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Schneider OSMC32N family: 18 mm/pole, H81, D70"},
+    {"model":"OSMC32N2C16","w":36,"h":81,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Schneider OSMC32N family: 18 mm/pole, H81, D70"},
+    {"model":"OSMC32N2C10","w":36,"h":81,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Schneider OSMC32N family: 18 mm/pole, H81, D70"},
+
+    {"model":"SIMATIC ST60","w":175,"h":100,"d":81,"status":"VERIFIED_DIMENSION_PROXY","source":"Siemens S7-200 SMART dimensional data"},
+    {"model":"EM AE08","w":45,"h":100,"d":81,"status":"VERIFIED_DIMENSION_PROXY","source":"Siemens S7-200 SMART expansion module dimensional data"},
+    {"model":"EM AE04","w":45,"h":100,"d":81,"status":"VERIFIED_DIMENSION_PROXY","source":"Siemens S7-200 SMART expansion module dimensional data"},
+    {"model":"EM AQ04","w":45,"h":100,"d":81,"status":"VERIFIED_DIMENSION_PROXY","source":"Siemens S7-200 SMART expansion module dimensional data"},
+
+    {"model":"EDS-205A","w":30,"h":115,"d":70,"status":"VERIFIED_DIMENSION_PROXY","source":"Moxa EDS-205A official dimensional drawing"},
+
+    {"model":"3VT630N","w":140,"h":275,"d":105,"status":"EQUIVALENT_GEOMETRY_PROXY","source":"Siemens 3VT630 dimensional drawing + OEZ BH630 equivalent geometry; final production check recommended"},
+
+    {"model":"MD-ACL-490-0.028-4T-2%","w":320,"h":305,"d":198,"status":"MANUAL_DERIVED_PROXY","source":"Inovance reactor dimensional table used for cabinet envelope; final reactor outline check recommended"},
+
+    {"model":"MDBUN-200-T","w":187,"h":380,"d":192,"status":"VERIFIED_DIMENSION_PROXY","source":"Inovance MDBUN installation manual"},
+    {"model":"MDBUN-90-T","w":110,"h":247,"d":165,"status":"VERIFIED_DIMENSION_PROXY","source":"Inovance MDBUN installation manual"},
+    {"model":"AM521-0808TN","w":53,"h":100,"d":80,"status":"VERIFIED_DIMENSION_PROXY","source":"Inovance AM500 brochure"}
+  ]
+}
