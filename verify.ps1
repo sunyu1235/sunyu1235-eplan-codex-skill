@@ -7,12 +7,14 @@ $ErrorActionPreference = 'Continue'
 
 if ($Scope -eq 'Global') {
     $skill = Join-Path $env:USERPROFILE '.codex\skills\eplan-development'
+    $cadSkill = Join-Path $env:USERPROFILE '.codex\skills\cad-parts-no-login'
 } else {
     $skill = Join-Path $ProjectRoot '.agents\skills\eplan-development'
+    $cadSkill = Join-Path $ProjectRoot '.agents\skills\cad-parts-no-login'
 }
 
-Write-Host "Skill: $skill"
-if (Test-Path (Join-Path $skill 'SKILL.md')) { Write-Host '[OK] SKILL.md' } else { Write-Host '[MISSING] SKILL.md' }
+Write-Host "EPLAN Skill: $skill"
+if (Test-Path (Join-Path $skill 'SKILL.md')) { Write-Host '[OK] EPLAN SKILL.md' } else { Write-Host '[MISSING] EPLAN SKILL.md' }
 $refs = Get-ChildItem (Join-Path $skill 'references') -Filter '*.md' -ErrorAction SilentlyContinue
 Write-Host "References: $($refs.Count)/10"
 if (Test-Path (Join-Path $skill 'references\parts-sources.md')) { Write-Host '[OK] parts-sources.md' } else { Write-Host '[MISSING] parts-sources.md' }
@@ -22,6 +24,12 @@ $partResolver = Join-Path $skill 'scripts\find-eplan-part.ps1'
 if (Test-Path $partResolver) { Write-Host '[OK] on-demand part resolver' } else { Write-Host '[MISSING] skill scripts\find-eplan-part.ps1' }
 $bomParser = Join-Path $skill 'scripts\parse-bom.py'
 if (Test-Path $bomParser) { Write-Host '[OK] BOM parser' } else { Write-Host '[MISSING] skill scripts\parse-bom.py' }
+
+Write-Host "CAD Skill: $cadSkill"
+if (Test-Path (Join-Path $cadSkill 'SKILL.md')) { Write-Host '[OK] cad-parts-no-login SKILL.md' } else { Write-Host '[MISSING] cad-parts-no-login SKILL.md' }
+
+$collector = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'scripts\collect-cad-libraries.ps1'
+if (Test-Path $collector) { Write-Host '[OK] no-login CAD collector' } else { Write-Host '[MISSING] scripts\collect-cad-libraries.ps1' }
 
 $eplanPaths = Get-ChildItem 'C:\Program Files\EPLAN\Platform' -Directory -ErrorAction SilentlyContinue
 if ($eplanPaths) {
