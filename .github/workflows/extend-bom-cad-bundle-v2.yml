@@ -1,0 +1,54 @@
+name: Extend BOM CAD bundle v2
+
+on:
+  push:
+    branches:
+      - codex/eplan-port
+    paths:
+      - .github/workflows/extend-bom-cad-bundle-v2.yml
+      - cad-libraries/bom-supplement-sources.json
+      - scripts/collect_bom_supplement.py
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download v1 CAD bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cad-libraries-no-login-6
+          path: cad-library-cache
+          github-token: ${{ github.token }}
+          repository: sunyu1235/sunyu1235-eplan-codex-skill
+          run-id: 32557725362
+
+      - name: Collect targeted BOM supplement
+        run: |
+          python scripts/collect_bom_supplement.py \
+            --out cad-library-cache/bom-supplement \
+            --sources cad-libraries/bom-supplement-sources.json
+
+      - name: Inventory v2
+        shell: bash
+        run: |
+          du -sh cad-library-cache
+          find cad-library-cache -type f \( -iname '*.step' -o -iname '*.stp' -o -iname '*.fcstd' -o -iname '*.dwg' -o -iname '*.dxf' -o -iname '*.x_t' -o -iname '*.igs' -o -iname '*.iges' \) | wc -l
+          cat cad-library-cache/bom-supplement/SUPPLEMENT-REPORT.json
+
+      - name: Upload v2 bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-libraries-no-login-v2-${{ github.run_number }}
+          path: cad-library-cache
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
