@@ -2,17 +2,19 @@
 # -*- coding: utf-8 -*-
 """Collect CAD component libraries that do not require upstream login.
 
-Design goals:
-- no browser automation and no account/session cookies;
-- prefer open-source/public Git repositories and anonymous vendor download URLs;
-- keep upstream license/notices;
-- build a cache for electrical-panel layout, not a general mechanical mega-library;
-- fail soft on one source so the rest of the cache is still usable.
+The collector intentionally avoids account/session based portals. It combines:
+- sparse/full public Git repositories;
+- the public step.parts API;
+- verified anonymous vendor direct downloads;
+- public vendor pages whose HTML exposes direct CAD download links.
+
+One broken source must not make the whole collection unusable.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import re
 import shutil
@@ -21,15 +23,16 @@ import time
 import urllib.parse
 import urllib.request
 import zipfile
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES_FILE = ROOT / "cad-libraries" / "sources.json"
-UA = "sunyu1235-eplan-codex-skill-cad-collector/1.0"
+UA = "Mozilla/5.0 cad-library-collector/2.0"
 
 CAD_EXTS = {
     ".step", ".stp", ".fcstd", ".stl", ".brep", ".iges", ".igs",
-    ".dxf", ".dwg", ".ipt", ".iam", ".sldprt", ".sldasm", ".obj",
+    ".dxf", ".dwg", ".ipt", ".iam", ".sldprt", ".sldasm", ".obj", ".x_t",
 }
 KEEP_NAMES = {
     "license", "license.txt", "license.md", "license-assets", "license-assets.txt",
@@ -47,18 +50,39 @@ def run(cmd: list[str], cwd: Path | None = None, check: bool = True) -> subproce
 
 
 def safe_name(text: str) -> str:
+    text = urllib.parse.unquote(str(text))
     text = re.sub(r"[^A-Za-z0-9._+()-]+", "_", text.strip())
-    return text[:160] or "part"
+    return text[:180] or "part"
+
+
+def make_request(url: str, accept: str = "*/*") -> urllib.request.Request:
+    return urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": UA,
+            "Accept": accept,
+            "Accept-Language": "en-US,en;q=0.8,zh-CN;q=0.6",
+        },
+    )
 
 
 def request_bytes(url: str, timeout: int = 90) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with urllib.request.urlopen(make_request(url), timeout=timeout) as r:
         return r.read()
 
 
+def request_text(url: str, timeout: int = 90) -> str:
+    raw = request_bytes(url, timeout=timeout)
+    for enc in ("utf-8", "gb18030", "latin1"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            pass
+    return raw.decode("utf-8", errors="replace")
+
+
 def request_json(url: str, timeout: int = 60):
-    return json.loads(request_bytes(url, timeout=timeout).decode("utf-8"))
+    return json.loads(request_text(url, timeout=timeout))
 
 
 def sha256_file(path: Path) -> str:
@@ -95,9 +119,9 @@ def clone_full(repo: str, dest: Path, branch: str | None = None) -> None:
 
 
 def prune_non_cad(root: Path) -> tuple[int, int]:
-    """Keep CAD, text/license metadata, scripts and small JSON/YAML metadata."""
+    """Keep CAD plus source/license/index metadata useful for provenance."""
     kept = removed = 0
-    text_exts = {".md", ".txt", ".json", ".yaml", ".yml", ".csv", ".py"}
+    text_exts = {".md", ".txt", ".json", ".yaml", ".yml", ".csv", ".py", ".ps1"}
     for p in sorted(root.rglob("*"), reverse=True):
         if p.is_dir():
             continue
@@ -120,13 +144,15 @@ def prune_non_cad(root: Path) -> tuple[int, int]:
     return kept, removed
 
 
-def download_file(url: str, dest: Path) -> None:
+def download_file(url: str, dest: Path) -> dict:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=180) as r, tmp.open("wb") as f:
+    with urllib.request.urlopen(make_request(url), timeout=240) as r, tmp.open("wb") as f:
+        final_url = r.geturl()
+        content_type = r.headers.get("Content-Type", "")
         shutil.copyfileobj(r, f, length=1024 * 1024)
     tmp.replace(dest)
+    return {"final_url": final_url, "content_type": content_type, "bytes": dest.stat().st_size}
 
 
 def unpack_zip(zip_path: Path, out_dir: Path) -> None:
@@ -173,7 +199,9 @@ def collect_step_parts(base_api: str, queries: list[str], dest: Path, limit: int
     catalog: list[dict] = []
     downloaded = 0
     for q in queries:
-        qs = urllib.parse.urlencode({"q": q, "pageSize": limit})
+        # Supplying both is harmless on APIs that ignore unknown parameters and
+        # makes the collector tolerant of page-size naming changes.
+        qs = urllib.parse.urlencode({"q": q, "limit": limit, "pageSize": limit})
         url = f"{base_api.rstrip('/')}/parts?{qs}"
         log(f"[step.parts] query: {q}")
         try:
@@ -196,8 +224,8 @@ def collect_step_parts(base_api: str, queries: list[str], dest: Path, limit: int
             ext = ".step" if ".step" in u.lower() else ".stp"
             target = qdir / f"{idx:02d}_{safe_name(model)}{ext}"
             try:
-                download_file(u, target)
-                record.update({"status": "downloaded", "file": str(target.relative_to(dest)), "sha256": sha256_file(target)})
+                meta = download_file(u, target)
+                record.update({"status": "downloaded", "file": str(target.relative_to(dest)), "sha256": sha256_file(target), **meta})
                 downloaded += 1
             except Exception as e:
                 record.update({"status": "error", "error": str(e)})
@@ -215,21 +243,132 @@ def collect_vendor(entry: dict, dest_root: Path) -> dict:
     dest.mkdir(parents=True, exist_ok=True)
     parsed = urllib.parse.urlparse(url)
     filename = Path(parsed.path).name or "download.zip"
-    if not filename.lower().endswith((".zip", ".stp", ".step")):
+    if not filename.lower().endswith((".zip", ".stp", ".step", ".dwg", ".dxf", ".x_t", ".igs")):
         filename += ".zip"
     archive = dest / safe_name(filename)
     log(f"[vendor] {vendor} {name}")
-    download_file(url, archive)
-    result = {"vendor": vendor, "name": name, "url": url, "archive": str(archive.relative_to(dest_root)), "sha256": sha256_file(archive)}
+    meta = download_file(url, archive)
+    result = {
+        "vendor": vendor,
+        "name": name,
+        "url": url,
+        "archive": str(archive.relative_to(dest_root)),
+        "sha256": sha256_file(archive),
+        **meta,
+    }
     if archive.suffix.lower() == ".zip":
-        unpack_dir = dest / "unpacked"
-        unpack_zip(archive, unpack_dir)
-        result["unpacked"] = str(unpack_dir.relative_to(dest_root))
+        try:
+            unpack_dir = dest / "unpacked"
+            unpack_zip(archive, unpack_dir)
+            result["unpacked"] = str(unpack_dir.relative_to(dest_root))
+        except Exception as e:
+            result["unpack_error"] = str(e)
     return result
+
+
+class LinkCollector(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links: list[dict] = []
+        self._href: str | None = None
+        self._text: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == "a":
+            self._href = dict(attrs).get("href")
+            self._text = []
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "a" and self._href is not None:
+            self.links.append({"href": self._href, "text": " ".join(self._text).strip()})
+            self._href = None
+            self._text = []
+
+
+def discover_cad_links(page_url: str, extensions: list[str]) -> list[dict]:
+    text = request_text(page_url, timeout=120)
+    parser = LinkCollector()
+    parser.feed(text)
+    exts = tuple(x.lower() for x in extensions)
+    found: list[dict] = []
+    seen: set[str] = set()
+
+    for item in parser.links:
+        href = html.unescape(item["href"] or "").strip()
+        label = html.unescape(item["text"] or "").strip()
+        joined = (href + " " + label).lower()
+        if not any(ext in joined for ext in exts):
+            continue
+        url = urllib.parse.urljoin(page_url, href)
+        if url.startswith(("http://", "https://")) and url not in seen:
+            seen.add(url)
+            found.append({"url": url, "label": label})
+
+    # Some product sites embed direct URLs in JSON/script rather than <a> tags.
+    for raw in re.findall(r'https?:(?:\\/\\/|//)[^"\'<>\\s]+', text):
+        u = html.unescape(raw.replace("\\/", "/"))
+        low = u.lower()
+        if any(ext in low for ext in exts) and u not in seen:
+            seen.add(u)
+            found.append({"url": u, "label": Path(urllib.parse.urlparse(u).path).name})
+
+    return found
+
+
+def filename_from_link(url: str, label: str, idx: int) -> str:
+    label = label.strip()
+    # Prefer the visible CAD filename if the anchor text contains one.
+    m = re.search(r'([^/\\]+\.(?:stp|step|dwg|dxf|igs|iges|x_t|zip))', label, flags=re.I)
+    if m:
+        return safe_name(m.group(1))
+    p = Path(urllib.parse.urlparse(url).path).name
+    if p:
+        return safe_name(p)
+    return f"download_{idx:03d}.bin"
+
+
+def collect_scrape_page(entry: dict, dest_root: Path) -> dict:
+    vendor = entry.get("vendor", "Web")
+    name = entry["name"]
+    url = entry["url"]
+    exts = entry.get("extensions", [".stp", ".step"])
+    max_files = int(entry.get("max_files", 20))
+    dest = dest_root / safe_name(vendor) / safe_name(name)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    log(f"[scrape] {vendor} {name}: {url}")
+    links = discover_cad_links(url, exts)[:max_files]
+    records = []
+    ok = 0
+    for idx, item in enumerate(links, 1):
+        target = dest / filename_from_link(item["url"], item.get("label", ""), idx)
+        rec = {"source_page": url, "url": item["url"], "label": item.get("label"), "file": target.name}
+        try:
+            meta = download_file(item["url"], target)
+            # Drop obvious HTML error/landing pages masquerading as downloads.
+            if target.stat().st_size < 1024 and "text/html" in meta.get("content_type", ""):
+                raise RuntimeError("download resolved to a small HTML page")
+            rec.update({"status": "downloaded", "sha256": sha256_file(target), **meta})
+            ok += 1
+        except Exception as e:
+            target.unlink(missing_ok=True)
+            rec.update({"status": "error", "error": str(e)})
+            log(f"WARN scraped CAD download failed: {item['url']}: {e}")
+        records.append(rec)
+    (dest / "_catalog.json").write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"vendor": vendor, "name": name, "page": url, "discovered": len(links), "downloaded": ok}
 
 
 def count_cad(root: Path) -> int:
     return sum(1 for p in root.rglob("*") if p.is_file() and p.suffix.lower() in CAD_EXTS)
+
+
+def directory_size(root: Path) -> int:
+    return sum(p.stat().st_size for p in root.rglob("*") if p.is_file())
 
 
 def main() -> int:
@@ -264,7 +403,7 @@ def main() -> int:
             if entry.get("prune", True):
                 kept, removed = prune_non_cad(dest)
                 rec.update({"kept_files": kept, "removed_non_cad": removed})
-            rec.update({"status": "ok", "cad_files": count_cad(dest)})
+            rec.update({"status": "ok", "cad_files": count_cad(dest), "bytes": directory_size(dest)})
         except Exception as e:
             rec.update({"status": "error", "error": str(e)})
             log(f"WARN public repo failed: {entry['name']}: {e}")
@@ -290,18 +429,33 @@ def main() -> int:
                 log(f"WARN vendor download failed: {entry['name']}: {e}")
             report["sources"].append(rec)
 
+        for entry in sources.get("scrape_pages", []):
+            rec = {"name": entry["name"], "vendor": entry.get("vendor"), "status": "pending"}
+            try:
+                rec.update(collect_scrape_page(entry, out / "vendor-anonymous"))
+                rec["status"] = "ok"
+            except Exception as e:
+                rec.update({"status": "error", "error": str(e)})
+                log(f"WARN vendor page scrape failed: {entry['name']}: {e}")
+            report["sources"].append(rec)
+
     shutil.copy2(SOURCES_FILE, out / "sources.json")
+    report["cad_files_total"] = count_cad(out)
+    report["bytes_total"] = directory_size(out)
     (out / "COLLECTION-REPORT.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     (out / "README.txt").write_text(
-        "This cache was built without logging in to upstream CAD sites.\n"
-        "Open-source mirrors retain upstream license/readme files.\n"
-        "vendor-anonymous/ contains files fetched from anonymous official download URLs;\n"
-        "do not publish those files unless the vendor license explicitly permits redistribution.\n",
+        "NO-LOGIN ELECTRICAL CAD COLLECTION\n\n"
+        "Built without logging in to upstream CAD portals.\n"
+        "open-source/ contains public Git snapshots and step.parts results.\n"
+        "vendor-anonymous/ contains files fetched from public anonymous vendor URLs/pages.\n"
+        "COLLECTION-REPORT.json records successes, misses, source URLs and hashes.\n"
+        "Always verify exact part number and measured bounding box before production cabinet sizing.\n",
         encoding="utf-8",
     )
 
     total = count_cad(out)
-    log(f"DONE: {total} CAD files in {out}")
+    size = directory_size(out)
+    log(f"DONE: {total} CAD files, {size / (1024*1024):.1f} MiB in {out}")
     return 0
 
 
