@@ -1,18 +1,19 @@
 ---
 name: eplan-development
-description: Develop and automate EPLAN Electric P8 with Codex. Use for EPLAN C# scripts, EPLAN API extensions, parts/project/page data access, Remote Client apps, debugging automation, or operating a running EPLAN instance through the local eplan MCP server. Covers EPLAN 2022–2027.
+description: Develop and automate EPLAN Electric P8 with Codex. Use for EPLAN C# scripts, EPLAN API extensions, parts/project/page data access, Remote Client apps, debugging automation, operating a running EPLAN instance through the local eplan MCP server, or resolving and importing EPLAN parts/macros on demand. Covers EPLAN 2022–2027.
 ---
 
 # EPLAN Electric P8 Development for Codex
 
-Use this skill for EPLAN Electric P8 scripting, API development, Remote Client automation, and MCP-driven operations.
+Use this skill for EPLAN Electric P8 scripting, API development, Remote Client automation, MCP-driven operations, and on-demand parts data retrieval.
 
 ## Choose the execution path first
 
 1. **Operate a running EPLAN instance**: use the local `eplan` MCP server when available. Inspect the current project/state before mutating it.
-2. **Verify EPLAN actions, parameters, or API signatures**: prefer the `eplan_rag` MCP dependency when available. If it is unavailable, query `https://rag2026.covaga.xyz/search` instead of guessing.
-3. **Write code only**: read the matching reference file below, then generate the smallest correct EPLAN script/API/Remote Client implementation.
-4. **Destructive project changes**: only perform them when the user requested the change. Prefer a project backup/export first when practical, and report exactly what was changed.
+2. **Find a part/macro by manufacturer + part number**: read `references/parts-sources.md`. Resolve/download only the requested part; never mirror a complete catalog.
+3. **Verify EPLAN actions, parameters, or API signatures**: prefer the `eplan_rag` MCP dependency when available. If it is unavailable, query `https://rag2026.covaga.xyz/search` instead of guessing.
+4. **Write code only**: read the matching reference file below, then generate the smallest correct EPLAN script/API/Remote Client implementation.
+5. **Destructive project changes**: only perform them when the user requested the change. Prefer a project backup/export first when practical, and report exactly what was changed.
 
 ## The three development models
 
@@ -36,6 +37,30 @@ Read only the references relevant to the task:
 - `references/remoting.md` — `EplanRemoteClient`, server discovery, dynamic ports, headless launch, version differences, Cogineer.
 - `references/pitfalls.md` — blocking/message-loop failures, disposal, sequencing, error handling.
 - `references/integration-patterns.md` — HTTP/SignalR/external-service integration patterns.
+- `references/parts-sources.md` — WSCAD Universe, manufacturer sources, on-demand cache policy, and EDZ import workflow.
+
+## On-demand parts workflow
+
+When the user asks for an EPLAN part, macro, or EDZ for a model number:
+
+1. Require/derive an exact manufacturer and part number. Do not substitute a similar model without telling the user.
+2. Check only the local on-demand cache for that exact model; do not sync a complete manufacturer catalog.
+3. Prefer an official manufacturer source when a stable generator/download service exists.
+4. Use WSCAD Universe as the broad multi-manufacturer fallback. Its public integration interface can construct pre-filled BOM URLs from manufacturer ID + part number.
+5. Treat browser login/download controls normally. Do not scrape around authentication or licensing. If a click/login is required, open the exact pre-filled page and continue from the downloaded artifact.
+6. Validate the downloaded artifact and requested model before import.
+7. For `.edz`, use EPLAN `partsmanagementapi` with `FORMAT:IXPartsImportExportEdz`; default to `MODE:0` (append new records only).
+8. After import, search/re-read the part to verify it exists in parts management.
+
+The included helper can generate the currently known source links:
+
+```powershell
+.\scripts\find-eplan-part.ps1 -Manufacturer Siemens -PartNumber '6ES7214-1AG40-0XB0'
+```
+
+Add `-OpenBrowser` to open the highest-priority source. For WSCAD manufacturers not in the helper's small known-ID map, resolve the current manufacturer ID instead of guessing it.
+
+If EDZ import reports that the converter/module is unavailable, report that limitation. Do not bypass EPLAN license/module checks.
 
 ## MCP operating rules
 
@@ -48,7 +73,7 @@ When `eplan` tools are available:
 - After a write, re-read or run the relevant EPLAN check/export to verify the result.
 - If a tool/action name is uncertain, query `eplan_rag` or the REST RAG before invoking it.
 
-If the local `eplan` MCP is missing, do not invent equivalent shell/UI automation. Tell the user to run the included `scripts/setup-eplan-mcp.ps1`, or continue with code-generation-only work if that still satisfies the request.
+If the local `eplan` MCP is missing, do not invent equivalent shell/UI automation. Tell the user to run the included `scripts/setup-eplan-mcp.ps1`, or continue with code-generation/source-resolution work if that still satisfies the request.
 
 ## Documentation lookup
 
@@ -73,3 +98,4 @@ Use narrow English queries. Verify undocumented/case-sensitive action names and 
 7. Verify action names/parameters with the EPLAN RAG before guessing.
 8. Do not directly `using Eplan.EplApi.DataModel;` or `...HEServices;` in EPLAN scripts where the script compiler cannot resolve them. Use the runtime-reflection pattern in `references/e3d-installation-spaces.md`.
 9. Do not `RegisterScript` a one-shot `[Start]` script. Execute it directly; registration is for persistent declared actions/events/register hooks.
+10. Never mirror proprietary parts portals or bypass their authentication/subscription controls. Retrieve requested parts on demand through normal source access.
