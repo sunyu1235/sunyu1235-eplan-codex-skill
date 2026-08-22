@@ -4,7 +4,6 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
-$packageRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 if ($Scope -eq 'Global') {
     $skill = Join-Path $env:USERPROFILE '.codex\skills\eplan-development'
@@ -18,8 +17,8 @@ $refs = Get-ChildItem (Join-Path $skill 'references') -Filter '*.md' -ErrorActio
 Write-Host "References: $($refs.Count)/9"
 if (Test-Path (Join-Path $skill 'references\parts-sources.md')) { Write-Host '[OK] parts-sources.md' } else { Write-Host '[MISSING] parts-sources.md' }
 
-$partResolver = Join-Path $packageRoot 'scripts\find-eplan-part.ps1'
-if (Test-Path $partResolver) { Write-Host '[OK] on-demand part resolver' } else { Write-Host '[MISSING] scripts\find-eplan-part.ps1' }
+$partResolver = Join-Path $skill 'scripts\find-eplan-part.ps1'
+if (Test-Path $partResolver) { Write-Host '[OK] on-demand part resolver' } else { Write-Host '[MISSING] skill scripts\find-eplan-part.ps1' }
 
 $eplanPaths = Get-ChildItem 'C:\Program Files\EPLAN\Platform' -Directory -ErrorAction SilentlyContinue
 if ($eplanPaths) {
