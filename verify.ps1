@@ -14,11 +14,14 @@ if ($Scope -eq 'Global') {
 Write-Host "Skill: $skill"
 if (Test-Path (Join-Path $skill 'SKILL.md')) { Write-Host '[OK] SKILL.md' } else { Write-Host '[MISSING] SKILL.md' }
 $refs = Get-ChildItem (Join-Path $skill 'references') -Filter '*.md' -ErrorAction SilentlyContinue
-Write-Host "References: $($refs.Count)/9"
+Write-Host "References: $($refs.Count)/10"
 if (Test-Path (Join-Path $skill 'references\parts-sources.md')) { Write-Host '[OK] parts-sources.md' } else { Write-Host '[MISSING] parts-sources.md' }
+if (Test-Path (Join-Path $skill 'references\bom-workflow.md')) { Write-Host '[OK] bom-workflow.md' } else { Write-Host '[MISSING] bom-workflow.md' }
 
 $partResolver = Join-Path $skill 'scripts\find-eplan-part.ps1'
 if (Test-Path $partResolver) { Write-Host '[OK] on-demand part resolver' } else { Write-Host '[MISSING] skill scripts\find-eplan-part.ps1' }
+$bomParser = Join-Path $skill 'scripts\parse-bom.py'
+if (Test-Path $bomParser) { Write-Host '[OK] BOM parser' } else { Write-Host '[MISSING] skill scripts\parse-bom.py' }
 
 $eplanPaths = Get-ChildItem 'C:\Program Files\EPLAN\Platform' -Directory -ErrorAction SilentlyContinue
 if ($eplanPaths) {
