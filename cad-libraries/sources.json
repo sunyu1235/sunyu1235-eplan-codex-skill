@@ -25,7 +25,7 @@
     {
       "name": "FreeCAD-PartsToolbox",
       "repo": "https://github.com/alexneufeld/FreeCAD_PartsToolbox.git",
-      "branch": "master",
+      "branch": "main",
       "sparse_paths": ["ObjModels"],
       "license": "GPL-3.0; preserve upstream LICENSE",
       "prune": true
