@@ -21,6 +21,9 @@ on:
       - codex/eplan-port
     paths:
       - .github/workflows/collect-cad-libraries.yml
+      - cad-libraries/sources.json
+      - scripts/collect_cad_libraries.py
+      - scripts/collect-cad-libraries.ps1
 
 permissions:
   contents: read
