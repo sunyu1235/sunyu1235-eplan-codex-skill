@@ -6,197 +6,45 @@
     "notes": "Only public Git repositories, public APIs and anonymous vendor downloads/pages are used."
   },
   "public_repositories": [
-    {
-      "name": "FreeCAD-library-Electrical",
-      "repo": "https://github.com/FreeCAD/FreeCAD-library.git",
-      "branch": "master",
-      "sparse_paths": ["Electrical Parts", "Electro-pneumatic"],
-      "license": "CC-BY-3.0 for library assets; preserve upstream attribution/license metadata",
-      "prune": true
-    },
-    {
-      "name": "PanelCC-Parts-and-Structure",
-      "repo": "https://github.com/Canela-san/PanelCC.git",
-      "branch": "main",
-      "sparse_paths": ["Parts", "Estrutura"],
-      "license": "MIT per upstream README; preserve upstream notices",
-      "prune": true
-    },
-    {
-      "name": "FreeCAD-PartsToolbox-Models",
-      "repo": "https://github.com/alexneufeld/FreeCAD_PartsToolbox.git",
-      "branch": "main",
-      "sparse_paths": ["ObjModels"],
-      "license": "GPL-3.0; preserve upstream LICENSE",
-      "prune": true
-    },
-    {
-      "name": "text-to-cad-skills",
-      "repo": "https://github.com/earthtojake/text-to-cad.git",
-      "branch": "main",
-      "sparse_paths": ["skills/step-parts", "skills/cad", "skills/cad-viewer"],
-      "license": "preserve upstream LICENSE",
-      "prune": false
-    },
-    {
-      "name": "CLI-Anything-FreeCAD-skill",
-      "repo": "https://github.com/HKUDS/CLI-Anything.git",
-      "branch": "main",
-      "sparse_paths": ["skills/cli-anything-freecad"],
-      "license": "preserve upstream LICENSE",
-      "prune": false
-    },
-    {
-      "name": "freecad-mcp-sergiudanstan",
-      "repo": "https://github.com/sergiudanstan/freecad-mcp.git",
-      "branch": "main",
-      "license": "preserve upstream LICENSE",
-      "prune": false
-    },
-    {
-      "name": "freecad-mcp-blwfish",
-      "repo": "https://github.com/blwfish/freecad-mcp.git",
-      "branch": "dev",
-      "license": "preserve upstream LICENSE",
-      "prune": false
-    },
-    {
-      "name": "FreeCAD-Cables-Workbench",
-      "repo": "https://github.com/DrBenson/FreeCAD_Cables.git",
-      "branch": "master",
-      "license": "preserve upstream LICENSE",
-      "prune": false
-    }
+    {"name":"FreeCAD-library-Electrical","repo":"https://github.com/FreeCAD/FreeCAD-library.git","branch":"master","sparse_paths":["Electrical Parts","Electro-pneumatic"],"license":"CC-BY-3.0 for library assets; preserve upstream attribution/license metadata","prune":true},
+    {"name":"PanelCC-Parts-and-Structure","repo":"https://github.com/Canela-san/PanelCC.git","branch":"main","sparse_paths":["Parts","Estrutura"],"license":"MIT per upstream README; preserve upstream notices","prune":true},
+    {"name":"FreeCAD-PartsToolbox-Models","repo":"https://github.com/alexneufeld/FreeCAD_PartsToolbox.git","branch":"main","sparse_paths":["ObjModels"],"license":"GPL-3.0; preserve upstream LICENSE","prune":true},
+    {"name":"text-to-cad-skills","repo":"https://github.com/earthtojake/text-to-cad.git","branch":"main","sparse_paths":["skills/step-parts","skills/cad","skills/cad-viewer"],"license":"preserve upstream LICENSE","prune":false},
+    {"name":"CLI-Anything-FreeCAD-skill","repo":"https://github.com/HKUDS/CLI-Anything.git","branch":"main","sparse_paths":["skills/cli-anything-freecad"],"license":"preserve upstream LICENSE","prune":false},
+    {"name":"freecad-mcp-sergiudanstan","repo":"https://github.com/sergiudanstan/freecad-mcp.git","branch":"main","license":"preserve upstream LICENSE","prune":false},
+    {"name":"freecad-mcp-blwfish","repo":"https://github.com/blwfish/freecad-mcp.git","branch":"dev","license":"preserve upstream LICENSE","prune":false},
+    {"name":"FreeCAD-Cables-Workbench","repo":"https://github.com/DrBenson/FreeCAD_Cables.git","branch":"master","license":"preserve upstream LICENSE","prune":false}
   ],
   "step_parts_api": {
     "enabled": true,
     "base_api": "https://api.step.parts/v1",
     "license": "Mixed per-source licensing; collector keeps catalog metadata and source URLs",
-    "queries": [
-      "DIN rail",
-      "terminal block",
-      "relay",
-      "contactor",
-      "circuit breaker",
-      "power supply",
-      "electrical enclosure",
-      "cable gland",
-      "panel fan",
-      "industrial ethernet switch",
-      "transformer DIN",
-      "fuse holder DIN",
-      "surge protector DIN",
-      "motor starter",
-      "PLC DIN rail"
-    ]
+    "queries": ["DIN rail","terminal block","relay","contactor","circuit breaker","power supply","electrical enclosure","cable gland","panel fan","industrial ethernet switch","transformer DIN","fuse holder DIN","surge protector DIN","motor starter","PLC DIN rail"]
   },
   "vendor_direct": [
-    {
-      "vendor": "Inovance",
-      "name": "MD520_3D_STP",
-      "url": "https://www.inovance.co.kr/_files/archives/8ad492_7e9b5215f59843208ca1e65b77614f07.zip?dn=MD520_3D_STP.zip",
-      "login_required": false,
-      "redistribute": false,
-      "notes": "Official anonymous 3D STP package."
-    },
-    {
-      "vendor": "MeanWell",
-      "name": "NDR-240-3D",
-      "url": "https://www.meanwell.com.cn/upload/pdf/NDR-240/NDR-240-3D.zip",
-      "login_required": false,
-      "redistribute": false,
-      "notes": "Official anonymous 3D package."
-    }
+    {"vendor":"Inovance","name":"MD520_3D_STP","url":"https://www.inovance.co.kr/_files/archives/8ad492_7e9b5215f59843208ca1e65b77614f07.zip?dn=MD520_3D_STP.zip","login_required":false,"redistribute":false,"notes":"Official anonymous 3D STP package."},
+    {"vendor":"MeanWell","name":"NDR-240-3D","url":"https://www.meanwell.com.cn/upload/pdf/NDR-240/NDR-240-3D.zip","login_required":false,"redistribute":false,"notes":"Official anonymous 3D package."},
+    {"vendor":"CHINT","name":"NDK-500-3D","url":"https://www.chintglobal.com/content/dam/chint/global/product-center/low-voltage/iec/industrial-control/control-transformer/ndk/drawing/NDK-500-202403-Control%20Transformer-Drawing.stp","login_required":false,"redistribute":false,"notes":"Official anonymous STEP; exact BOM capacity."},
+    {"vendor":"CHINT","name":"NDK-1000-3D","url":"https://www.chintglobal.com/content/dam/chint/global/product-center/low-voltage/iec/industrial-control/control-transformer/ndk/drawing/NDK-1000-202403-Control%20Transformer-Drawing.stp","login_required":false,"redistribute":false,"notes":"Official anonymous STEP; exact BOM capacity."}
   ],
   "scrape_pages": [
-    {
-      "vendor": "CHINT",
-      "name": "NB1-63_MCB",
-      "url": "https://www.chintglobal.com/global/en/products/low-voltage/iec/final-power-distribution/nb1-63.html",
-      "extensions": [".stp", ".step", ".dwg"],
-      "max_files": 30
-    },
-    {
-      "vendor": "CHINT",
-      "name": "NM8N_MCCB",
-      "url": "https://www.chintglobal.com/global/en/products/low-voltage/iec/secondary-power-distribution/nm8n.html",
-      "extensions": [".stp", ".step", ".dwg"],
-      "max_files": 50
-    },
-    {
-      "vendor": "CHINT",
-      "name": "CJX2_download_page_1712",
-      "url": "https://electric.chint.com/service/download/page/1712.html",
-      "extensions": [".stp", ".step", ".dwg"],
-      "max_files": 30
-    },
-    {
-      "vendor": "CHINT",
-      "name": "CJX2_download_page_1713",
-      "url": "https://electric.chint.com/service/download/page/1713.html",
-      "extensions": [".stp", ".step", ".dwg"],
-      "max_files": 30
-    },
-    {
-      "vendor": "CHINT",
-      "name": "NC8_download_page_1717",
-      "url": "https://electric.chint.com/service/download/page/1717.html",
-      "extensions": [".stp", ".step", ".dwg"],
-      "max_files": 30
-    },
-    {
-      "vendor": "CHINT",
-      "name": "NC7_download_page_1720",
-      "url": "https://electric.chint.com/service/download/page/1720.html",
-      "extensions": [".stp", ".step", ".dwg"],
-      "max_files": 30
-    },
-    {
-      "vendor": "CHINT",
-      "name": "NC7_download_page_1721",
-      "url": "https://electric.chint.com/service/download/page/1721.html",
-      "extensions": [".stp", ".step", ".dwg"],
-      "max_files": 30
-    },
-    {
-      "vendor": "Schneider",
-      "name": "LC1D12M7_eShop",
-      "url": "https://eshop.se.com/sg/tesys-d-contactor-3p3-no-ac-3-440-v-12-a-220-v-ac-coil-lc1d12m7.html",
-      "extensions": [".stp", ".step", ".dwg", ".dxf"],
-      "max_files": 20
-    },
-    {
-      "vendor": "Schneider",
-      "name": "RXM2LB2BD_eShop",
-      "url": "https://eshop.se.com/sg/miniature-plug-in-relay-harmony-5a-2co-with-led-24v-dc-rxm2lb2bd.html",
-      "extensions": [".stp", ".step", ".dwg", ".dxf"],
-      "max_files": 20
-    },
-    {
-      "vendor": "Schneider",
-      "name": "RXZE1M2C_eShop",
-      "url": "https://eshop.se.com/sg/schneider-electric-zelio-rxz-plug-in-socket-250-v-ac-7-a-screw-clamp-for-rum-dpdt-4pdt-config.html",
-      "extensions": [".stp", ".step", ".dwg", ".dxf"],
-      "max_files": 20
-    },
-    {
-      "vendor": "Schneider",
-      "name": "LRD16_eShop",
-      "url": "https://eshop.se.com/sg/thermal-overload-relay-tesys-deca-9-13a-1no-1nc-class-10a-screw-clamp-lrd16.html",
-      "extensions": [".stp", ".step", ".dwg", ".dxf"],
-      "max_files": 20
-    }
+    {"vendor":"CHINT","name":"NB1-63_MCB","url":"https://www.chintglobal.com/global/en/products/low-voltage/iec/final-power-distribution/nb1-63.html","extensions":[".stp",".step",".dwg"],"max_files":30},
+    {"vendor":"CHINT","name":"NM8N_MCCB","url":"https://www.chintglobal.com/global/en/products/low-voltage/iec/secondary-power-distribution/nm8n.html","extensions":[".stp",".step",".dwg"],"max_files":50},
+    {"vendor":"CHINT","name":"NDK_Control_Transformer","url":"https://www.chintglobal.com/global/en/products/low-voltage/iec/industrial-control/ndk.html","extensions":[".stp",".step",".dwg"],"max_files":30},
+    {"vendor":"CHINT","name":"NR4-G_Thermal_Relay","url":"https://www.chint.net/products/660.html","extensions":[".stp",".step",".dwg"],"max_files":40},
+    {"vendor":"CHINT","name":"CJX2_download_page_1712","url":"https://electric.chint.com/service/download/page/1712.html","extensions":[".stp",".step",".dwg"],"max_files":30},
+    {"vendor":"CHINT","name":"CJX2_download_page_1713","url":"https://electric.chint.com/service/download/page/1713.html","extensions":[".stp",".step",".dwg"],"max_files":30},
+    {"vendor":"CHINT","name":"NC8_download_page_1717","url":"https://electric.chint.com/service/download/page/1717.html","extensions":[".stp",".step",".dwg"],"max_files":30},
+    {"vendor":"CHINT","name":"NC7_download_page_1720","url":"https://electric.chint.com/service/download/page/1720.html","extensions":[".stp",".step",".dwg"],"max_files":30},
+    {"vendor":"CHINT","name":"NC7_download_page_1721","url":"https://electric.chint.com/service/download/page/1721.html","extensions":[".stp",".step",".dwg"],"max_files":30},
+    {"vendor":"Schneider","name":"LC1D12M7_eShop","url":"https://eshop.se.com/sg/tesys-d-contactor-3p3-no-ac-3-440-v-12-a-220-v-ac-coil-lc1d12m7.html","extensions":[".stp",".step",".dwg",".dxf"],"max_files":20},
+    {"vendor":"Schneider","name":"RXM2LB2BD_eShop","url":"https://eshop.se.com/sg/miniature-plug-in-relay-harmony-5a-2co-with-led-24v-dc-rxm2lb2bd.html","extensions":[".stp",".step",".dwg",".dxf"],"max_files":20},
+    {"vendor":"Schneider","name":"RXZE1M2C_eShop","url":"https://eshop.se.com/sg/schneider-electric-zelio-rxz-plug-in-socket-250-v-ac-7-a-screw-clamp-for-rum-dpdt-4pdt-config.html","extensions":[".stp",".step",".dwg",".dxf"],"max_files":20},
+    {"vendor":"Schneider","name":"LRD16_eShop","url":"https://eshop.se.com/sg/thermal-overload-relay-tesys-deca-9-13a-1no-1nc-class-10a-screw-clamp-lrd16.html","extensions":[".stp",".step",".dwg",".dxf"],"max_files":20}
   ],
   "reference_only": [
-    {
-      "name": "Universal-Electronics-Box",
-      "url": "https://github.com/MillenniumMachines/Universal-Electronics-Box",
-      "reason": "Excellent cabinet/DIN reference; current README does not provide an explicit redistribution license."
-    },
-    {
-      "name": "Siemens Industry Mall CAx",
-      "url": "https://mall.industry.siemens.com/",
-      "reason": "Useful official CAx source but downloads are generated interactively; not required by this no-login cache."
-    }
+    {"name":"Universal-Electronics-Box","url":"https://github.com/MillenniumMachines/Universal-Electronics-Box","reason":"Excellent cabinet/DIN reference; current README does not provide an explicit redistribution license."},
+    {"name":"Siemens Industry Mall CAx","url":"https://mall.industry.siemens.com/","reason":"Useful official CAx source but downloads are generated interactively; not required by this no-login cache."},
+    {"name":"Moxa EDS-205A official 2D CAD","url":"https://www.moxa.com/en/support/product-support/software-and-documentation?psid=48080","reason":"Official no-login 2D CAD exists; no public 3D STEP found yet."}
   ]
 }
