@@ -8,6 +8,14 @@ on:
       - .github/workflows/add-exact-bom-direct-cad.yml
       - cad-libraries/bom-direct-sources.json
       - scripts/download_bom_direct_cad.py
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - cad-library-v3.trigger
+      - cad-libraries/bom-direct-sources.json
+      - scripts/download_bom_direct_cad.py
+      - .github/workflows/add-exact-bom-direct-cad.yml
   workflow_dispatch:
 
 permissions:
