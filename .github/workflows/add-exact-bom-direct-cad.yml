@@ -1,0 +1,53 @@
+name: Add exact BOM direct CAD
+
+on:
+  push:
+    branches:
+      - codex/eplan-port
+    paths:
+      - .github/workflows/add-exact-bom-direct-cad.yml
+      - cad-libraries/bom-direct-sources.json
+      - scripts/download_bom_direct_cad.py
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  add-direct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: codex/eplan-port
+
+      - name: Download v2 bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cad-libraries-no-login-v2-4
+          path: cad-library-cache
+          github-token: ${{ github.token }}
+          repository: sunyu1235/sunyu1235-eplan-codex-skill
+          run-id: 32559210487
+
+      - name: Download exact official BOM CAD
+        run: |
+          python scripts/download_bom_direct_cad.py \
+            --manifest cad-libraries/bom-direct-sources.json \
+            --out cad-library-cache/bom-exact-direct
+
+      - name: Inventory
+        run: |
+          du -sh cad-library-cache
+          cat cad-library-cache/bom-exact-direct/DIRECT-CAD-REPORT.json
+
+      - name: Upload v3 bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-libraries-no-login-v3-${{ github.run_number }}
+          path: cad-library-cache
+          compression-level: 0
+          retention-days: 30
