@@ -1,0 +1,15 @@
+interface:
+  display_name: "EPLAN Development"
+  short_description: "Develop and automate EPLAN Electric P8 with Codex"
+  default_prompt: "Use $eplan-development to inspect, develop, or automate this EPLAN Electric P8 task safely and verify EPLAN-specific actions before using them."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "eplan_rag"
+      description: "EPLAN Electric P8 documentation RAG"
+      transport: "streamable_http"
+      url: "https://rag2026.covaga.xyz/mcp"
+
+policy:
+  allow_implicit_invocation: true
