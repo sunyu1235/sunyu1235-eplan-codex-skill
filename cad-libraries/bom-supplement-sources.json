@@ -1,0 +1,15 @@
+{
+  "pages": [
+    {"vendor":"CHINT","name":"NDK_Control_Transformer","url":"https://www.chint.net/products/96.html","extensions":[".stp",".step",".dwg"],"max_files":40},
+    {"vendor":"CHINT","name":"NR4_G_Thermal_Relay","url":"https://www.chint.net/products/660.html","extensions":[".stp",".step",".dwg"],"max_files":60},
+    {"vendor":"CHINT","name":"NM8N_MCCB_retry","url":"https://www.chintglobal.com/global/en/products/low-voltage/iec/secondary-power-distribution/nm8n.html","extensions":[".stp",".step",".dwg"],"max_files":80},
+    {"vendor":"Schneider-JLCFA","name":"OSMC32N_3P_C63","url":"https://www.jlcfa.com/item/1835874924592.html","extensions":[".stp",".step",".x_t",".igs",".iges"],"max_files":20},
+    {"vendor":"Schneider-JLCFA","name":"OSMC32N_2P_C16","url":"https://www.jlcfa.com/item/1755495716315.html","extensions":[".stp",".step",".x_t",".igs",".iges"],"max_files":20},
+    {"vendor":"Siemens-JLCFA","name":"S7_200_SMART_ST60","url":"https://www.jlcfa.com/item/1740736582012.html","extensions":[".stp",".step",".x_t",".igs",".iges"],"max_files":20},
+    {"vendor":"Siemens-JLCFA","name":"S7_200_SMART_EM_AE04","url":"https://www.jlcfa.com/item/1777736539719.html","extensions":[".stp",".step",".x_t",".igs",".iges"],"max_files":20},
+    {"vendor":"Siemens-JLCFA","name":"S7_200_SMART_EM_AE08","url":"https://www.jlcfa.com/item/1312834024671.html","extensions":[".stp",".step",".x_t",".igs",".iges"],"max_files":20},
+    {"vendor":"Siemens-JLCFA","name":"S7_200_SMART_EM_AQ04","url":"https://www.jlcfa.com/item/2177769998679.html","extensions":[".stp",".step",".x_t",".igs",".iges"],"max_files":20},
+    {"vendor":"Moxa-JLCFA","name":"EDS_205A","url":"https://www.jlcfa.com/item/1308445745461.html","extensions":[".stp",".step",".x_t",".igs",".iges"],"max_files":20},
+    {"vendor":"Inovance","name":"MD500_product_page","url":"https://www.inovance.co.kr/products/%EC%82%B0%EC%97%85%EC%9E%90%EB%8F%99%ED%99%94/acdrive/md500","extensions":[".stp",".step",".dwg",".zip"],"max_files":20}
+  ]
+}
