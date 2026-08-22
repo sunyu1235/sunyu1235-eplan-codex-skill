@@ -1,0 +1,133 @@
+name: Check BOM CAD coverage
+
+on:
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - cad-bom-coverage.trigger
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout base tools and BOM list
+        uses: actions/checkout@v4
+        with:
+          ref: codex/eplan-port
+
+      - name: Download existing 1.285GB CAD bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cad-libraries-no-login-6
+          path: cad-bundle
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: sunyu1235/sunyu1235-eplan-codex-skill
+          run-id: 32557725362
+
+      - name: Match current BOM against collected CAD files
+        shell: python
+        run: |
+          import json, re
+          from pathlib import Path
+
+          root = Path('cad-bundle')
+          bom = json.loads(Path('cad-libraries/current-bom-models.json').read_text(encoding='utf-8'))
+          paths = [str(p.relative_to(root)).replace('\\','/') for p in root.rglob('*') if p.is_file()]
+
+          def norm(s):
+              return re.sub(r'[^A-Z0-9]+', '', s.upper())
+
+          indexed = [(p, norm(p)) for p in paths]
+
+          # Family aliases are deliberately weaker than exact/specific model aliases.
+          family = {
+              'MD500T5.5GB':['MD500'], 'MD500T11GB':['MD500'],
+              'OSMC32N3C63':['OSMC32N'], 'OSMC32N3C25':['OSMC32N'], 'OSMC32N3C16':['OSMC32N'],
+              'OSMC32N3C10':['OSMC32N'], 'OSMC32N2C20':['OSMC32N'], 'OSMC32N2C16':['OSMC32N'], 'OSMC32N2C10':['OSMC32N'],
+              'NDK-1000VA 380/220':['NDK'], 'NDK-500VA 380/220':['NDK'],
+              'CJX2-0910 220V':['CJX2'], 'NR4-63G 1.6-2.5A':['NR4'],
+              'LC1D12M7C':['LC1D12'],
+              'RXM2LB2BD + RXZE1M2C':[],
+              '3VT630N':['3VT'], 'MD-ACL-490-0.028-4T-2%':['MDACL'],
+              'MD520-4T220':['MD520'], 'MD520-4T90':['MD520'],
+              'MDBUN-200-T':['MDBUN'], 'MDBUN-90-T':['MDBUN'],
+              'AM521-0808TN':['AM521'], 'LRD16C 9-13A':['LRD16'],
+              'RXLG-27000W/3.2Ω':['RXLG'], 'RXLG-9000W/10.2Ω':['RXLG']
+          }
+
+          results=[]
+          for item in bom['models']:
+              model=item['model']
+              aliases=item.get('aliases',[])
+              fam_norm={norm(x) for x in family.get(model,[])}
+              specific=[a for a in aliases if norm(a) not in fam_norm]
+
+              hits={}
+              for a in aliases:
+                  na=norm(a)
+                  if not na: continue
+                  hh=[p for p,np in indexed if na in np]
+                  if hh: hits[a]=hh[:8]
+
+              if model == 'RXM2LB2BD + RXZE1M2C':
+                  a=bool(hits.get('RXM2LB2BD')); b=bool(hits.get('RXZE1M2C'))
+                  status='EXACT' if a and b else ('PARTIAL' if a or b else 'MISS')
+              elif any(a in hits for a in specific):
+                  status='EXACT'
+              elif any(a in hits for a in aliases):
+                  status='FAMILY'
+              else:
+                  status='MISS'
+
+              results.append({**item,'status':status,'hits':hits})
+
+          active=[r for r in results if r['active']]
+          exact=[r for r in active if r['status']=='EXACT']
+          family_hits=[r for r in active if r['status']=='FAMILY']
+          partial=[r for r in active if r['status']=='PARTIAL']
+          miss=[r for r in active if r['status']=='MISS']
+
+          covered=[r for r in active if r['status'] in ('EXACT','FAMILY','PARTIAL')]
+          exact_qty=sum(r['qty'] for r in exact)
+          covered_qty=sum(r['qty'] for r in covered)
+          total_qty=sum(r['qty'] for r in active)
+
+          lines=[]
+          lines.append('# Current BOM → CAD bundle coverage')
+          lines.append('')
+          lines.append(f"- Active unique BOM models: **{len(active)}**")
+          lines.append(f"- Active component instances: **{total_qty}**")
+          lines.append(f"- Exact model hits: **{len(exact)} unique / {exact_qty} instances**")
+          lines.append(f"- Exact + same-family/partial usable hits: **{len(covered)} unique / {covered_qty} instances**")
+          lines.append(f"- Misses: **{len(miss)} unique / {sum(r['qty'] for r in miss)} instances**")
+          lines.append('')
+          lines.append('| Model | Qty | Status | Example match |')
+          lines.append('|---|---:|---|---|')
+          for r in results:
+              examples=[]
+              for _,hh in r['hits'].items(): examples += hh[:1]
+              ex=(examples[0] if examples else '')[:140]
+              lines.append(f"| {r['model']} | {r['qty']} | {r['status']}{'' if r['active'] else ' (not currently required)'} | {ex} |")
+          Path('bom-coverage-report.md').write_text('\n'.join(lines),encoding='utf-8')
+          Path('bom-coverage-report.json').write_text(json.dumps(results,ensure_ascii=False,indent=2),encoding='utf-8')
+
+          print('\n'.join(lines[:9]))
+          print('EXACT:', ', '.join(r['model'] for r in exact))
+          print('FAMILY:', ', '.join(r['model'] for r in family_hits))
+          print('PARTIAL:', ', '.join(r['model'] for r in partial))
+          print('MISS:', ', '.join(r['model'] for r in miss))
+
+      - name: Upload small coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: current-bom-cad-coverage
+          path: |
+            bom-coverage-report.md
+            bom-coverage-report.json
+          retention-days: 30
