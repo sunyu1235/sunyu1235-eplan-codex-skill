@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "vendor": "CHINT",
+      "model": "NDK-500",
+      "filename": "NDK-500-202403-Control_Transformer-Drawing.stp",
+      "url": "https://www.chintglobal.com/content/dam/chint/global/product-center/low-voltage/iec/industrial-control/control-transformer/ndk/drawing/NDK-500-202403-Control%20Transformer-Drawing.stp",
+      "bom_match": "NDK-500VA 380/220",
+      "source": "official CHINT global"
+    },
+    {
+      "vendor": "CHINT",
+      "model": "NDK-1000",
+      "filename": "NDK-1000-202403-Control_Transformer-Drawing.stp",
+      "url": "https://www.chintglobal.com/content/dam/chint/global/product-center/low-voltage/iec/industrial-control/control-transformer/ndk/drawing/NDK-1000-202403-Control%20Transformer-Drawing.stp",
+      "bom_match": "NDK-1000VA 380/220",
+      "source": "official CHINT global"
+    }
+  ]
+}
