@@ -1,0 +1,78 @@
+name: Collect no-login CAD libraries
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Cache size
+        required: true
+        default: starter
+        type: choice
+        options:
+          - starter
+          - expanded
+      include_vendor:
+        description: Include anonymous official vendor downloads
+        required: true
+        default: true
+        type: boolean
+  push:
+    branches:
+      - codex/eplan-port
+    paths:
+      - .github/workflows/collect-cad-libraries.yml
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MODE: ${{ github.event.inputs.mode || 'starter' }}
+      INCLUDE_VENDOR: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.include_vendor || 'yes' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Normalize inputs
+        shell: bash
+        run: |
+          if [ "$INCLUDE_VENDOR" = "true" ]; then echo "INCLUDE_VENDOR=yes" >> "$GITHUB_ENV"; fi
+          if [ "$INCLUDE_VENDOR" = "false" ]; then echo "INCLUDE_VENDOR=no" >> "$GITHUB_ENV"; fi
+          echo "mode=$MODE vendor=$INCLUDE_VENDOR"
+
+      - name: Collect public CAD libraries
+        run: |
+          python scripts/collect_cad_libraries.py \
+            --out cad-library-cache \
+            --mode "$MODE" \
+            --include-vendor "$INCLUDE_VENDOR"
+
+      - name: Inventory
+        shell: bash
+        run: |
+          du -sh cad-library-cache || true
+          find cad-library-cache -type f \( -iname '*.step' -o -iname '*.stp' -o -iname '*.fcstd' \) | wc -l
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('cad-library-cache/COLLECTION-REPORT.json')
+          if p.exists():
+              print(p.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-libraries-no-login-${{ github.run_number }}
+          path: cad-library-cache
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
