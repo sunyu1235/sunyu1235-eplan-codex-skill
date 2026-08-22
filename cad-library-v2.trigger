@@ -1,0 +1,1 @@
+bundle-v2 exact NDK500 NDK1000 NR4-63G
