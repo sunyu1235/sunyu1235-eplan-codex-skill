@@ -6,7 +6,7 @@ on:
       mode:
         description: Cache size
         required: true
-        default: starter
+        default: expanded
         type: choice
         options:
           - starter
@@ -24,6 +24,15 @@ on:
       - cad-libraries/sources.json
       - scripts/collect_cad_libraries.py
       - scripts/collect-cad-libraries.ps1
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - cad-library-run.trigger
+      - .github/workflows/collect-cad-libraries.yml
+      - cad-libraries/sources.json
+      - scripts/collect_cad_libraries.py
+      - scripts/collect-cad-libraries.ps1
 
 permissions:
   contents: read
@@ -31,9 +40,9 @@ permissions:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
-      MODE: ${{ github.event.inputs.mode || 'starter' }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode || 'expanded' }}
       INCLUDE_VENDOR: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.include_vendor || 'yes' }}
 
     steps:
@@ -63,7 +72,7 @@ jobs:
         shell: bash
         run: |
           du -sh cad-library-cache || true
-          find cad-library-cache -type f \( -iname '*.step' -o -iname '*.stp' -o -iname '*.fcstd' \) | wc -l
+          find cad-library-cache -type f \( -iname '*.step' -o -iname '*.stp' -o -iname '*.fcstd' -o -iname '*.dwg' -o -iname '*.dxf' \) | wc -l
           python - <<'PY'
           from pathlib import Path
           p=Path('cad-library-cache/COLLECTION-REPORT.json')
