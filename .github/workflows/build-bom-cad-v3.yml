@@ -1,0 +1,120 @@
+name: Build BOM CAD bundle v3
+
+on:
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - cad-library-v3.trigger
+      - cad-libraries/dimension-proxies.json
+      - scripts/generate_dimension_proxies.py
+      - .github/workflows/build-bom-cad-v3.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout base tools
+        uses: actions/checkout@v4
+        with:
+          ref: codex/eplan-port
+
+      - name: Download v2 CAD bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cad-libraries-no-login-v2-3
+          path: cad-library-cache
+          github-token: ${{ github.token }}
+          repository: sunyu1235/sunyu1235-eplan-codex-skill
+          run-id: 32559013884
+
+      - name: Install STEP generator
+        run: python -m pip install --disable-pip-version-check cadquery
+
+      - name: Generate verified dimension STEP proxies
+        run: |
+          python scripts/generate_dimension_proxies.py \
+            --spec cad-libraries/dimension-proxies.json \
+            --out cad-library-cache/bom-dimension-proxies
+
+      - name: Download exact anonymous NDK STEP files
+        shell: python
+        run: |
+          import json, urllib.request
+          from pathlib import Path
+          src=json.loads(Path('cad-libraries/sources.json').read_text(encoding='utf-8'))
+          out=Path('cad-library-cache/vendor-anonymous/CHINT/NDK-exact')
+          out.mkdir(parents=True,exist_ok=True)
+          for item in src['vendor_direct']:
+              if item['name'] not in ('NDK-500-3D','NDK-1000-3D'):
+                  continue
+              url=item['url']
+              target=out/(item['name']+'.stp')
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0'})
+              with urllib.request.urlopen(req,timeout=180) as r, target.open('wb') as f:
+                  f.write(r.read())
+              print(item['name'], target.stat().st_size, target)
+
+      - name: Calculate BOM functional coverage
+        shell: python
+        run: |
+          import json,re
+          from pathlib import Path
+          root=Path('cad-library-cache')
+          bom=json.loads(Path('cad-libraries/current-bom-models.json').read_text(encoding='utf-8'))
+          paths=[str(p.relative_to(root)).replace('\\','/') for p in root.rglob('*') if p.is_file()]
+          def norm(x): return re.sub(r'[^A-Z0-9]+','',x.upper())
+          indexed=[(p,norm(p)) for p in paths]
+          rows=[]
+          for x in bom['models']:
+              if not x['active']: continue
+              hits=[]
+              # exact/specific aliases first; family aliases still count as usable.
+              for a in x['aliases']:
+                  na=norm(a)
+                  if len(na)<3: continue
+                  hh=[p for p,np in indexed if na in np]
+                  if hh: hits.extend(hh[:2])
+              status='USABLE' if hits else 'MISS'
+              rows.append((x['model'],x['qty'],status,hits[:3]))
+          usable=[r for r in rows if r[2]=='USABLE']
+          miss=[r for r in rows if r[2]=='MISS']
+          total=sum(r[1] for r in rows); usable_qty=sum(r[1] for r in usable)
+          report=[]
+          report.append('# BOM CAD functional coverage v3')
+          report.append('')
+          report.append(f'- Active unique models: **{len(rows)}**')
+          report.append(f'- Active component instances: **{total}**')
+          report.append(f'- Usable exact/family/dimension models: **{len(usable)} / {len(rows)} unique**')
+          report.append(f'- Covered instances: **{usable_qty} / {total}**')
+          report.append(f'- Missing: **{len(miss)} unique / {sum(r[1] for r in miss)} instances**')
+          report.append('')
+          report.append('| Model | Qty | Status | Example |')
+          report.append('|---|---:|---|---|')
+          for m,q,s,h in rows:
+              report.append(f"| {m} | {q} | {s} | {(h[0] if h else '')[:150]} |")
+          Path('cad-library-cache/BOM-COVERAGE-V3.md').write_text('\n'.join(report),encoding='utf-8')
+          print('\n'.join(report[:7]))
+          print('MISS:', ', '.join(r[0] for r in miss))
+
+      - name: Inventory v3
+        shell: bash
+        run: |
+          du -sh cad-library-cache
+          find cad-library-cache -type f \( -iname '*.step' -o -iname '*.stp' -o -iname '*.fcstd' -o -iname '*.dwg' -o -iname '*.dxf' \) | wc -l
+          cat cad-library-cache/BOM-COVERAGE-V3.md
+
+      - name: Upload v3 bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-libraries-no-login-v3-${{ github.run_number }}
+          path: cad-library-cache
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
