@@ -15,54 +15,69 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: Probe CHINT NR4 page
+      - name: Extract CHINT NR4 direct download links
         shell: bash
         run: |
-          set +e
+          set -e
           python - <<'PY'
-          import requests,re
-          urls=['https://www.chint.net/products/660.html','https://chint.net/products/660.html']
-          hdr={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml'}
-          for u in urls:
-            try:
-              r=requests.get(u,headers=hdr,timeout=30,allow_redirects=True)
-              print('CHINT',u,'->',r.status_code,r.url,'bytes',len(r.content))
-              print('HEADERS',dict(r.headers))
-              text=r.text
-              for pat in [r'https?://[^\"\'<> ]+', r'[^\"\'<> ]+\.stp[^\"\'<> ]*', r'[^\"\'<> ]+(?:download|file|attach|asset)[^\"\'<> ]*']:
-                vals=re.findall(pat,text,re.I)
-                for v in vals[:200]:
-                  if 'NR4' in v or '.stp' in v.lower() or 'download' in v.lower(): print('CAND',v[:1000])
-              open('/tmp/chint.html','w',encoding='utf-8').write(text)
-            except Exception as e: print('CHINT ERR',repr(e))
+          import requests,re,html
+          from urllib.parse import urljoin
+          u='https://www.chint.net/products/660.html'
+          s=requests.Session()
+          s.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml'})
+          r=s.get(u,timeout=30)
+          print('CHINT PAGE',r.status_code,len(r.content))
+          t=r.text
+          anchors=re.findall(r'<a\b[^>]*?href=["\']([^"\']+)["\'][^>]*?download=["\']([^"\']+)["\'][^>]*>',t,re.I|re.S)
+          for href,name in anchors:
+            name=html.unescape(name)
+            if name.lower().endswith('.stp') and name.startswith('NR4-'):
+              url=urljoin(r.url,html.unescape(href))
+              print('CHINT_STP',name,'URL',url)
+              try:
+                q=s.get(url,timeout=60,stream=True,allow_redirects=True)
+                first=next(q.iter_content(128),b'')
+                print('CHINT_TEST',name,q.status_code,q.url,'len',q.headers.get('content-length'),'first',first[:40])
+                q.close()
+              except Exception as e: print('CHINT_TEST_ERR',name,repr(e))
           PY
-          echo '--- grep NR4/STP/API ---'
-          grep -Eoi '.{0,160}(NR4|\.stp|download|api).{0,260}' /tmp/chint.html 2>/dev/null | head -300 || true
 
-      - name: Probe Siemens Mall CAD endpoints
+      - name: Probe Siemens image database and CAx endpoints
         shell: bash
         run: |
           set +e
           python - <<'PY'
-          import requests,re
+          import requests,re,html
+          from urllib.parse import urljoin
           parts=['6ES7288-1ST60-0AA0','6ES7288-3AE04-0AA0','6ES7288-3AE08-0AA0','6ES7288-3AQ04-0AA0']
-          hdr={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml'}
+          expected={'6ES7288-1ST60-0AA0':'91616','6ES7288-3AE04-0AA0':'91624','6ES7288-3AE08-0AA0':'91629','6ES7288-3AQ04-0AA0':'93827'}
+          hdr={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml,*/*'}
+          s=requests.Session(); s.headers.update(hdr)
           for p in parts:
             urls=[
-              f'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/{p}',
-              f'https://mall.industry.siemens.com/mall/en/in/Catalog/Product?mlfb={p}',
+              f'https://www.automation.siemens.com/bilddb/cax_en.aspx?mlfb={p}',
+              f'https://www.automation.siemens.com/bilddb/cax_de.aspx?mlfb={p}&lang=en',
+              f'https://www.automation.siemens.com/bilddb/index.aspx?view=Search&mlfb={p}&objecttype=14&gridview=view1',
+              f'https://support.automation.siemens.com/WW/CAXorder/default.aspx?lang=en&mlfb={p}',
+              f'https://mall.industry.siemens.com/goos/catalog/Pages/mmpdata.ashx?MLFB1={p}&lang=en',
             ]
             for u in urls:
               try:
-                r=requests.get(u,headers=hdr,timeout=30,allow_redirects=True)
-                print('SIEMENS',p,u,'->',r.status_code,r.url,'bytes',len(r.content))
-                text=r.text
-                for line in re.findall(r'.{0,220}(?:91616|91624|91629|93827|\.stp|\.jt|CAD|M-CAD|download).{0,400}',text,re.I):
-                  print('SCAND',line[:1500].replace('\n',' '))
-                open(f'/tmp/{p}.html','w',encoding='utf-8').write(text)
-              except Exception as e: print('SIEMENS ERR',p,repr(e))
+                r=s.get(u,timeout=35,allow_redirects=True)
+                print('SI_PAGE',p,r.status_code,r.url,'bytes',len(r.content))
+                t=r.text
+                # Print full href/src/action values that look CAD-related.
+                vals=re.findall(r'(?:href|src|action)=["\']([^"\']+)["\']',t,re.I)
+                seen=set()
+                for v in vals:
+                  v=html.unescape(v)
+                  if any(x in v.lower() for x in ['.stp','.step','.jt','download','bilddb','cax']) or expected[p] in v:
+                    full=urljoin(r.url,v)
+                    if full not in seen:
+                      seen.add(full); print('SI_LINK',p,full)
+                for line in re.findall(r'.{0,300}(?:'+expected[p]+r'|\.stp|\.step|\.jt|3D|download|objecttype).{0,600}',t,re.I|re.S):
+                  print('SI_CTX',p,re.sub(r'\s+',' ',line)[:1800])
+              except Exception as e: print('SI_ERR',p,u,repr(e))
           PY
-          echo '--- Siemens grep ---'
-          grep -ERio '.{0,120}(91616|91624|91629|93827|\.stp|\.jt|m-cad|download).{0,300}' /tmp/6ES*.html 2>/dev/null | head -500 || true
