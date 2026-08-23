@@ -17,67 +17,55 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Extract CHINT NR4 direct download links
+      - name: Probe Siemens direct STEP paths
+        shell: bash
+        run: |
+          set -e
+          python - <<'PY'
+          import requests
+          motifs=['G_ST70_XX_91616','G_ST70_XX_91624','G_ST70_XX_91629','G_ST70_XX_93827']
+          bases=[
+            'https://www.automation.siemens.com/bilddb/ivariant/ST70/{f}',
+            'https://www.automation.siemens.com/bilddb/original/ST70/{f}',
+            'https://www.automation.siemens.com/bilddb/ori/ST70/{f}',
+            'https://www.automation.siemens.com/bilddb/download/ST70/{f}',
+            'https://www.automation.siemens.com/bilddb/Download/ST70/{f}',
+          ]
+          names=['{m}V.stp','{m}v.stp','{m}.stp','{m}V.STP','{m}.zip']
+          s=requests.Session(); s.headers.update({'User-Agent':'Mozilla/5.0','Accept':'*/*'})
+          for m in motifs:
+            print('===',m,'===')
+            for base in bases:
+              for pat in names:
+                f=pat.format(m=m); u=base.format(f=f)
+                try:
+                  r=s.get(u,timeout=20,stream=True,allow_redirects=True)
+                  first=next(r.iter_content(96),b'')
+                  ok=(r.status_code==200 and (first.startswith(b'ISO-10303-21') or first.startswith(b'PK')))
+                  if ok or r.status_code not in (404,403):
+                    print('TRY',r.status_code,'OK' if ok else 'NO',u,'final',r.url,'len',r.headers.get('content-length'),'type',r.headers.get('content-type'),'first',first[:60])
+                  r.close()
+                except Exception as e:
+                  print('ERR',u,repr(e))
+          PY
+
+      - name: Probe object-key detail pages
         shell: bash
         run: |
           set -e
           python - <<'PY'
           import requests,re,html
-          from urllib.parse import urljoin
-          u='https://www.chint.net/products/660.html'
-          s=requests.Session()
-          s.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml'})
-          r=s.get(u,timeout=30)
-          print('CHINT PAGE',r.status_code,len(r.content))
-          t=r.text
-          anchors=re.findall(r'<a\b[^>]*?href=["\']([^"\']+)["\'][^>]*?download=["\']([^"\']+)["\'][^>]*>',t,re.I|re.S)
-          for href,name in anchors:
-            name=html.unescape(name)
-            if name.lower().endswith('.stp') and name.startswith('NR4-'):
-              url=urljoin(r.url,html.unescape(href))
-              print('CHINT_STP',name,'URL',url)
-              try:
-                q=s.get(url,timeout=60,stream=True,allow_redirects=True)
-                first=next(q.iter_content(128),b'')
-                print('CHINT_TEST',name,q.status_code,q.url,'len',q.headers.get('content-length'),'first',first[:40])
-                q.close()
-              except Exception as e: print('CHINT_TEST_ERR',name,repr(e))
-          PY
-
-      - name: Probe Siemens image database and CAx endpoints
-        shell: bash
-        run: |
-          set +e
-          python - <<'PY'
-          import requests,re,html
-          from urllib.parse import urljoin
-          parts=['6ES7288-1ST60-0AA0','6ES7288-3AE04-0AA0','6ES7288-3AE08-0AA0','6ES7288-3AQ04-0AA0']
-          expected={'6ES7288-1ST60-0AA0':'91616','6ES7288-3AE04-0AA0':'91624','6ES7288-3AE08-0AA0':'91629','6ES7288-3AQ04-0AA0':'93827'}
-          hdr={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml,*/*'}
-          s=requests.Session(); s.headers.update(hdr)
-          for p in parts:
-            urls=[
-              f'https://www.automation.siemens.com/bilddb/cax_en.aspx?mlfb={p}',
-              f'https://www.automation.siemens.com/bilddb/cax_de.aspx?mlfb={p}&lang=en',
-              f'https://www.automation.siemens.com/bilddb/index.aspx?view=Search&mlfb={p}&objecttype=14&gridview=view1',
-              f'https://support.automation.siemens.com/WW/CAXorder/default.aspx?lang=en&mlfb={p}',
-              f'https://mall.industry.siemens.com/goos/catalog/Pages/mmpdata.ashx?MLFB1={p}&lang=en',
-            ]
-            for u in urls:
-              try:
-                r=s.get(u,timeout=35,allow_redirects=True)
-                print('SI_PAGE',p,r.status_code,r.url,'bytes',len(r.content))
-                t=r.text
-                # Print full href/src/action values that look CAD-related.
-                vals=re.findall(r'(?:href|src|action)=["\']([^"\']+)["\']',t,re.I)
-                seen=set()
-                for v in vals:
-                  v=html.unescape(v)
-                  if any(x in v.lower() for x in ['.stp','.step','.jt','download','bilddb','cax']) or expected[p] in v:
-                    full=urljoin(r.url,v)
-                    if full not in seen:
-                      seen.add(full); print('SI_LINK',p,full)
-                for line in re.findall(r'.{0,300}(?:'+expected[p]+r'|\.stp|\.step|\.jt|3D|download|objecttype).{0,600}',t,re.I|re.S):
-                  print('SI_CTX',p,re.sub(r'\s+',' ',line)[:1800])
-              except Exception as e: print('SI_ERR',p,u,repr(e))
+          motifs=['G_ST70_XX_91616','G_ST70_XX_91624','G_ST70_XX_91629','G_ST70_XX_93827']
+          s=requests.Session(); s.headers.update({'User-Agent':'Mozilla/5.0','Accept':'text/html,*/*'})
+          for m in motifs:
+            u='https://www.automation.siemens.com/bilddb/index.aspx?objKey='+m
+            r=s.get(u,timeout=30,allow_redirects=True)
+            print('DETAIL',m,r.status_code,r.url,'bytes',len(r.content))
+            t=r.text
+            for v in re.findall(r'(?:href|src|value)=["\']([^"\']+)["\']',t,re.I):
+              vv=html.unescape(v)
+              if m in vv or any(x in vv.lower() for x in ['.stp','.step','.jt','.zip','download.ashx','downloadfile']):
+                print('LINK',m,vv)
+            for x in re.findall(r'.{0,300}(?:'+re.escape(m)+r'|\.stp|\.step|\.jt|download).{0,700}',t,re.I|re.S):
+              print('CTX',m,re.sub(r'\s+',' ',x)[:2000])
           PY
