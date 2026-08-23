@@ -17,54 +17,46 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Inspect Siemens download JavaScript and services
+      - name: Call Siemens image variant API
         shell: bash
         run: |
           set -e
           python - <<'PY'
-          import requests,re,html
-          from urllib.parse import urljoin
+          import requests, xml.etree.ElementTree as ET, re
+          base='https://www.automation.siemens.com/bilddb/interfaces/InterfaceImageDB.asmx'
+          motifs=['G_ST70_XX_91616','G_ST70_XX_91624','G_ST70_XX_91629','G_ST70_XX_93827']
           s=requests.Session(); s.headers.update({'User-Agent':'Mozilla/5.0','Accept':'*/*'})
-          page=s.get('https://www.automation.siemens.com/bilddb/index.aspx?objKey=G_ST70_XX_91624',timeout=30).text
-          urls=['https://www.automation.siemens.com/bilddb/scripts/bilddb.js']
-          for src in re.findall(r'<script[^>]+src=["\']([^"\']+)["\']',page,re.I):
-            src=html.unescape(src)
-            if 'CCWebResource' in src or 'GridView' in src or 'Basket' in src:
-              urls.append(urljoin('https://www.automation.siemens.com/bilddb/',src))
-          seen=set()
-          for u in urls:
-            if u in seen: continue
-            seen.add(u)
-            try:
-              r=s.get(u,timeout=30); t=r.text
-              print('SCRIPT',r.status_code,u,'bytes',len(r.content))
-              for term in ['GridViewControl_DetailAction','CCBasket_Download_Zip_CallBack','ShoppingBasket','DetailAction','download.ashx','WebService','asmx','Callback']:
-                pos=0
-                while True:
-                  i=t.find(term,pos)
-                  if i<0: break
-                  print('HIT',term,re.sub(r'\s+',' ',t[max(0,i-800):i+1800])[:3000])
-                  pos=i+len(term)
-            except Exception as e: print('ERR',u,repr(e))
-          print('--- PAGE SERVICE/CALLBACK CONTEXT ---')
-          for pat in [r'.{0,1000}GridViewControl_DetailAction.{0,1800}',r'.{0,1000}ShoppingBasket.{0,1800}',r'.{0,1000}(?:asmx|WebService|Callback).{0,1800}']:
-            for x in re.findall(pat,page,re.I|re.S):
-              if isinstance(x,tuple): x=' '.join(x)
-              print('PAGEHIT',re.sub(r'\s+',' ',x)[:3200])
-          PY
 
-      - name: Inspect Siemens WSDL
-        shell: bash
-        run: |
-          set +e
-          python - <<'PY'
-          import requests,re
-          s=requests.Session(); s.headers.update({'User-Agent':'Mozilla/5.0'})
-          for u in [
-            'https://www.automation.siemens.com/bilddb/interfaces/InterfaceImageDB.asmx?WSDL',
-            'https://www.automation.siemens.com/bilddb/interfaces/InterfaceImageDB.asmx',
-          ]:
-            r=s.get(u,timeout=30); print('WSDL',r.status_code,u,'bytes',len(r.content)); t=r.text
-            for x in re.findall(r'.{0,300}(?:Download|Object|Variant|Motif|Image).{0,800}',t,re.I|re.S):
-              print('WSDLHIT',re.sub(r'\s+',' ',x)[:1500])
+          def get(path, params):
+            r=s.get(base+'/'+path,params=params,timeout=60,allow_redirects=True)
+            print('GET',path,r.status_code,r.url,'type',r.headers.get('content-type'),'len',len(r.content),'first',r.content[:80])
+            return r
+
+          # Variant type catalogue: discover STEP ID instead of guessing.
+          r=get('GetImageVariantTypeList',{'interfaceuserid':''})
+          print('TYPE_XML',r.text[:20000])
+
+          for m in motifs:
+            print('=== VARIANTS',m,'===')
+            r=get('GetImageVariantList',{'objectkey':m,'interfaceuserid':''})
+            print('VARIANT_XML',r.text[:30000])
+            if r.status_code != 200: continue
+            try:
+              root=ET.fromstring(r.content)
+            except Exception as e:
+              print('XMLERR',m,e); continue
+            variants=[]
+            for obj in root.iter():
+              if obj.tag.split('}')[-1]=='ImageVariantObject':
+                d={c.tag.split('}')[-1]:(c.text or '') for c in obj}
+                variants.append(d)
+            print('PARSED',m,variants)
+            for v in variants:
+              ext=(v.get('FileExtension') or '').lower()
+              name=(v.get('Filename') or '').lower()
+              if 'stp' in ext or 'step' in ext or name.endswith(('.stp','.step')):
+                vid=v.get('ImageVariantID','')
+                for api in ['GetImageVariantExt','GetImageVariant']:
+                  rr=get(api,{'objectkey':m,'imagevariantid':vid,'lang':'','interfaceuserid':''})
+                  print('DOWNLOAD_RESULT',m,vid,api,rr.status_code,rr.url,rr.headers.get('content-disposition'),rr.headers.get('content-type'),len(rr.content),rr.content[:40])
           PY
