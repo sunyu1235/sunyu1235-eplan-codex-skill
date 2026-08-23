@@ -1,0 +1,68 @@
+name: Probe v4 CAD direct links
+
+on:
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - v4-cad-probe.trigger
+      - .github/workflows/probe-v4-cad-direct-links.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe CHINT NR4 page
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY'
+          import requests,re
+          urls=['https://www.chint.net/products/660.html','https://chint.net/products/660.html']
+          hdr={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml'}
+          for u in urls:
+            try:
+              r=requests.get(u,headers=hdr,timeout=30,allow_redirects=True)
+              print('CHINT',u,'->',r.status_code,r.url,'bytes',len(r.content))
+              print('HEADERS',dict(r.headers))
+              text=r.text
+              for pat in [r'https?://[^\"\'<> ]+', r'[^\"\'<> ]+\.stp[^\"\'<> ]*', r'[^\"\'<> ]+(?:download|file|attach|asset)[^\"\'<> ]*']:
+                vals=re.findall(pat,text,re.I)
+                for v in vals[:200]:
+                  if 'NR4' in v or '.stp' in v.lower() or 'download' in v.lower(): print('CAND',v[:1000])
+              open('/tmp/chint.html','w',encoding='utf-8').write(text)
+            except Exception as e: print('CHINT ERR',repr(e))
+          PY
+          echo '--- grep NR4/STP/API ---'
+          grep -Eoi '.{0,160}(NR4|\.stp|download|api).{0,260}' /tmp/chint.html 2>/dev/null | head -300 || true
+
+      - name: Probe Siemens Mall CAD endpoints
+        shell: bash
+        run: |
+          set +e
+          python - <<'PY'
+          import requests,re
+          parts=['6ES7288-1ST60-0AA0','6ES7288-3AE04-0AA0','6ES7288-3AE08-0AA0','6ES7288-3AQ04-0AA0']
+          hdr={'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36','Accept':'text/html,application/xhtml+xml'}
+          for p in parts:
+            urls=[
+              f'https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/{p}',
+              f'https://mall.industry.siemens.com/mall/en/in/Catalog/Product?mlfb={p}',
+            ]
+            for u in urls:
+              try:
+                r=requests.get(u,headers=hdr,timeout=30,allow_redirects=True)
+                print('SIEMENS',p,u,'->',r.status_code,r.url,'bytes',len(r.content))
+                text=r.text
+                for line in re.findall(r'.{0,220}(?:91616|91624|91629|93827|\.stp|\.jt|CAD|M-CAD|download).{0,400}',text,re.I):
+                  print('SCAND',line[:1500].replace('\n',' '))
+                open(f'/tmp/{p}.html','w',encoding='utf-8').write(text)
+              except Exception as e: print('SIEMENS ERR',p,repr(e))
+          PY
+          echo '--- Siemens grep ---'
+          grep -ERio '.{0,120}(91616|91624|91629|93827|\.stp|\.jt|m-cad|download).{0,300}' /tmp/6ES*.html 2>/dev/null | head -500 || true
