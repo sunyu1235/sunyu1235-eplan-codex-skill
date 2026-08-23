@@ -65,7 +65,7 @@ jobs:
               'Accept': '*/*',
           })
 
-          # CHINT NR4 family: scrape the current signed download URLs from the official product page.
+          # CHINT NR4 family: scrape the current signed STEP URLs from the official product page.
           chint_page = 'https://www.chint.net/products/660.html'
           response = session.get(chint_page, timeout=60)
           response.raise_for_status()
@@ -74,24 +74,41 @@ jobs:
               response.text,
               re.I | re.S,
           )
+
+          # Official filenames contain Chinese descriptions/dates; map their stable prefixes to canonical model names.
+          nr4_prefixes = [
+              ('NR4-12_5G', 'NR4-12.5G'),
+              ('NR4-180G', 'NR4-180G'),
+              ('NR4-25G', 'NR4-25G'),
+              ('NR4-45G', 'NR4-45G'),
+              ('NR4-63G', 'NR4-63G'),
+              ('NR4-80G', 'NR4-80G'),
+              ('NR4-25', 'NR4-25'),
+              ('NR4-32', 'NR4-32'),
+              ('NR4-45', 'NR4-45'),
+              ('NR4-63', 'NR4-63'),
+              ('NR4-80', 'NR4-80'),
+          ]
           nr4 = {}
           for href, name in anchors:
               name = html.unescape(name)
-              if name.startswith('NR4-') and name.lower().endswith('.stp'):
-                  nr4[name] = urljoin(response.url, html.unescape(href))
-
-          expected_nr4 = {
-              'NR4-12.5G', 'NR4-25G', 'NR4-45G', 'NR4-63G', 'NR4-80G', 'NR4-180G',
-              'NR4-25', 'NR4-32', 'NR4-45', 'NR4-63', 'NR4-80',
-          }
-          found_stems = {Path(name).stem for name in nr4}
-          missing = sorted(expected_nr4 - found_stems)
-          if missing:
-              raise RuntimeError(f'Missing expected NR4 STEP models: {missing}; found={sorted(found_stems)}')
-
-          for name, url in sorted(nr4.items()):
-              if Path(name).stem not in expected_nr4:
+              if not (name.startswith('NR4-') and name.lower().endswith('.stp')):
                   continue
+              canonical = None
+              for prefix, model in nr4_prefixes:
+                  if name.startswith(prefix):
+                      canonical = model
+                      break
+              if canonical:
+                  nr4[canonical] = (name, urljoin(response.url, html.unescape(href)))
+
+          expected_nr4 = {model for _, model in nr4_prefixes}
+          missing = sorted(expected_nr4 - set(nr4))
+          if missing:
+              raise RuntimeError(f'Missing expected NR4 STEP models: {missing}; found={sorted(nr4)}')
+
+          for model in sorted(nr4):
+              name, url = nr4[model]
               r = session.get(url, timeout=120)
               r.raise_for_status()
               data = r.content
@@ -101,7 +118,7 @@ jobs:
               path.write_bytes(data)
               report['files'].append({
                   'vendor': 'CHINT',
-                  'model': Path(name).stem,
+                  'model': model,
                   'filename': name,
                   'path': str(path),
                   'source_page': chint_page,
@@ -129,7 +146,7 @@ jobs:
                   siemens_api,
                   params={
                       'objectkey': object_key,
-                      'imagevariantid': '51',  # BILDDB_VECTOR_GRAPHIC_RGB_STP_V
+                      'imagevariantid': '51',
                       'lang': '',
                       'interfaceuserid': '',
                   },
