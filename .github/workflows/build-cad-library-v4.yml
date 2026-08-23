@@ -1,0 +1,198 @@
+name: Build CAD library v4
+
+on:
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - cad-library-v4.trigger
+      - .github/workflows/build-cad-library-v4.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  build-v4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: codex/eplan-port
+
+      - name: Download v3 bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: cad-libraries-no-login-v3-3
+          path: cad-library-cache
+          github-token: ${{ github.token }}
+          repository: sunyu1235/sunyu1235-eplan-codex-skill
+          run-id: 32559449548
+
+      - name: Add exact NR4 and Siemens CAD
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import hashlib
+          import html
+          import json
+          import re
+          from pathlib import Path
+          from urllib.parse import urljoin
+
+          import requests
+
+          root = Path('cad-library-cache')
+          chint_dir = root / 'bom-exact-v4' / 'CHINT' / 'NR4'
+          siemens_dir = root / 'bom-exact-v4' / 'Siemens' / 'S7-200-SMART'
+          chint_dir.mkdir(parents=True, exist_ok=True)
+          siemens_dir.mkdir(parents=True, exist_ok=True)
+
+          report = {
+              'version': 'v4',
+              'base_artifact': 'cad-libraries-no-login-v3-3',
+              'base_run_id': 32559449548,
+              'files': [],
+          }
+
+          session = requests.Session()
+          session.headers.update({
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36',
+              'Accept': '*/*',
+          })
+
+          # CHINT NR4 family: scrape the current signed download URLs from the official product page.
+          chint_page = 'https://www.chint.net/products/660.html'
+          response = session.get(chint_page, timeout=60)
+          response.raise_for_status()
+          anchors = re.findall(
+              r'<a\b[^>]*?href=["\']([^"\']+)["\'][^>]*?download=["\']([^"\']+)["\'][^>]*>',
+              response.text,
+              re.I | re.S,
+          )
+          nr4 = {}
+          for href, name in anchors:
+              name = html.unescape(name)
+              if name.startswith('NR4-') and name.lower().endswith('.stp'):
+                  nr4[name] = urljoin(response.url, html.unescape(href))
+
+          expected_nr4 = {
+              'NR4-12.5G', 'NR4-25G', 'NR4-45G', 'NR4-63G', 'NR4-80G', 'NR4-180G',
+              'NR4-25', 'NR4-32', 'NR4-45', 'NR4-63', 'NR4-80',
+          }
+          found_stems = {Path(name).stem for name in nr4}
+          missing = sorted(expected_nr4 - found_stems)
+          if missing:
+              raise RuntimeError(f'Missing expected NR4 STEP models: {missing}; found={sorted(found_stems)}')
+
+          for name, url in sorted(nr4.items()):
+              if Path(name).stem not in expected_nr4:
+                  continue
+              r = session.get(url, timeout=120)
+              r.raise_for_status()
+              data = r.content
+              if not data.startswith(b'ISO-10303-21'):
+                  raise RuntimeError(f'CHINT download is not STEP: {name}')
+              path = chint_dir / name
+              path.write_bytes(data)
+              report['files'].append({
+                  'vendor': 'CHINT',
+                  'model': Path(name).stem,
+                  'filename': name,
+                  'path': str(path),
+                  'source_page': chint_page,
+                  'size': len(data),
+                  'sha256': hashlib.sha256(data).hexdigest(),
+              })
+
+          # Siemens S7-200 SMART: official anonymous Image Database API.
+          siemens_api = 'https://www.automation.siemens.com/bilddb/interfaces/InterfaceImageDB.asmx/GetImageVariantExt'
+          mapping = {
+              '6ES7288-1ST60-0AA0': ('G_ST70_XX_91616', 'ST60'),
+              '6ES7288-3AE04-0AA0': ('G_ST70_XX_91624', 'EM_AE04'),
+              '6ES7288-3AE08-0AA0': ('G_ST70_XX_91629', 'EM_AE08'),
+              '6ES7288-3AQ04-0AA0': ('G_ST70_XX_93827', 'EM_AQ04'),
+          }
+          expected_sizes = {
+              'G_ST70_XX_91616': 17511993,
+              'G_ST70_XX_91624': 5484542,
+              'G_ST70_XX_91629': 6838928,
+              'G_ST70_XX_93827': 5528330,
+          }
+
+          for order_number, (object_key, label) in mapping.items():
+              r = session.get(
+                  siemens_api,
+                  params={
+                      'objectkey': object_key,
+                      'imagevariantid': '51',  # BILDDB_VECTOR_GRAPHIC_RGB_STP_V
+                      'lang': '',
+                      'interfaceuserid': '',
+                  },
+                  timeout=120,
+              )
+              r.raise_for_status()
+              data = r.content
+              if not data.startswith(b'ISO-10303-21'):
+                  raise RuntimeError(f'Siemens download is not STEP: {order_number}')
+              if len(data) != expected_sizes[object_key]:
+                  raise RuntimeError(
+                      f'Siemens STEP size mismatch for {order_number}: '
+                      f'{len(data)} != {expected_sizes[object_key]}'
+                  )
+              filename = f'{order_number}_{label}.stp'
+              path = siemens_dir / filename
+              path.write_bytes(data)
+              report['files'].append({
+                  'vendor': 'Siemens',
+                  'order_number': order_number,
+                  'object_key': object_key,
+                  'filename': filename,
+                  'path': str(path),
+                  'source_api': siemens_api,
+                  'size': len(data),
+                  'sha256': hashlib.sha256(data).hexdigest(),
+              })
+
+          if len(report['files']) != 15:
+              raise RuntimeError(f'Expected 15 exact v4 additions, got {len(report["files"])}')
+
+          (root / 'V4-MANIFEST.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8'
+          )
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Verify v4 additions
+        shell: bash
+        run: |
+          set -euxo pipefail
+          du -sh cad-library-cache
+          find cad-library-cache/bom-exact-v4 -type f -print | sort
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('cad-library-cache/V4-MANIFEST.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          assert len(data['files']) == 15, len(data['files'])
+          assert any(x.get('model') == 'NR4-63G' for x in data['files'])
+          assert {x.get('order_number') for x in data['files'] if x.get('vendor') == 'Siemens'} == {
+              '6ES7288-1ST60-0AA0',
+              '6ES7288-3AE04-0AA0',
+              '6ES7288-3AE08-0AA0',
+              '6ES7288-3AQ04-0AA0',
+          }
+          print('Verified exact v4 additions:', len(data['files']))
+          PY
+
+      - name: Upload v4 bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-libraries-no-login-v4-${{ github.run_number }}
+          path: cad-library-cache
+          compression-level: 0
+          retention-days: 30
