@@ -6,6 +6,12 @@ on:
       - codex/eplan-port
     paths:
       - .github/workflows/split-v3-for-v4.yml
+  pull_request:
+    branches:
+      - codex/eplan-port
+    paths:
+      - split-v3-v4.trigger
+      - .github/workflows/split-v3-for-v4.yml
   workflow_dispatch:
 
 permissions:
