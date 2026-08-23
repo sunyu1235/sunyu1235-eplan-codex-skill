@@ -1,0 +1,75 @@
+name: Publish CAD library v4 from URL
+
+on:
+  push:
+    branches:
+      - codex/eplan-port
+    paths:
+      - cad-v4-source-url.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  publish-v4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: codex/eplan-port
+
+      - name: Read source URL
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="$(tr -d '\r\n' < cad-v4-source-url.txt)"
+          test -n "$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download v4
+        shell: bash
+        env:
+          V4_URL: ${{ steps.source.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 5 \
+            --connect-timeout 30 \
+            "$V4_URL" \
+            -o cad-libraries-no-login-v4.zip
+          ls -lh cad-libraries-no-login-v4.zip
+
+      - name: Verify SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="16cf6df06503e1738fa5c658e46d49bd3742ffabb53fd9f0728658ab814f747a"
+          ACTUAL="$(sha256sum cad-libraries-no-login-v4.zip | awk '{print $1}')"
+          echo "Expected: $EXPECTED"
+          echo "Actual:   $ACTUAL"
+          test "$ACTUAL" = "$EXPECTED"
+          unzip -tq cad-libraries-no-login-v4.zip >/dev/null
+
+      - name: Upload v4 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-libraries-no-login-v4
+          path: cad-libraries-no-login-v4.zip
+          compression-level: 0
+          retention-days: 30
+
+      - name: Write checksum
+        shell: bash
+        run: |
+          sha256sum cad-libraries-no-login-v4.zip > cad-libraries-no-login-v4.zip.sha256
+
+      - name: Upload checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-libraries-no-login-v4-sha256
+          path: cad-libraries-no-login-v4.zip.sha256
+          retention-days: 30
